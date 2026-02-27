@@ -1,0 +1,780 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>粗地高さゲーム</title>
+
+  <link rel="manifest" href="manifest.json" />
+  <meta name="theme-color" content="#ffffff" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+
+  <style>
+    :root{
+      --pad: 14px;
+      --radius: 16px;
+      --border: #d0d0d0;
+      --bg: #ffffff;
+      --muted: rgba(0,0,0,.68);
+      --shadow: 0 6px 20px rgba(0,0,0,.08);
+      --tap: 44px;
+    }
+
+    body{
+      font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+      margin: 0;
+      padding: 16px;
+      background: #fafafa;
+      color: #111;
+    }
+
+    .wrap{
+      max-width: 920px;
+      margin: 0 auto;
+      padding-bottom: env(safe-area-inset-bottom);
+    }
+
+    h1{ margin: 10px 0 8px; font-size: 22px; }
+
+    .card{
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: var(--pad);
+      box-shadow: var(--shadow);
+    }
+
+    .row{ margin-top: 12px; }
+    .mono{ font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+    .small{ font-size: 12px; color: var(--muted); line-height: 1.35; }
+
+    pre{
+      background:#f7f7f7;
+      border-radius: 14px;
+      padding: 12px;
+      white-space: pre-wrap;
+      line-height: 1.35;
+      margin: 0;
+    }
+
+    button{
+      min-height: var(--tap);
+      border-radius: 12px;
+      border: 1px solid #bdbdbd;
+      background: #fff;
+      cursor: pointer;
+      padding: 10px 12px;
+      font-size: 15px;
+    }
+    button:active{ transform: translateY(1px); }
+    button:disabled{ opacity: .5; cursor: not-allowed; }
+
+    .topbar{
+      display:flex;
+      gap: 10px;
+      align-items:center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      margin-bottom: 12px;
+    }
+
+    .pill{
+      display:inline-block;
+      padding: 4px 10px;
+      border: 1px solid #cfcfcf;
+      border-radius: 999px;
+      background:#fafafa;
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    /* Kanashiki buttons */
+    .btnGrid{
+      display:grid;
+      grid-template-columns: repeat(6, minmax(0, 1fr));
+      gap: 10px;
+      margin-top: 10px;
+    }
+    .kbtn{
+      width: 100%;
+      min-height: var(--tap);
+      border-radius: 14px;
+      border: 1px solid #9f9f9f;
+      background: #fff;
+      user-select: none;
+      touch-action: manipulation;
+      font-weight: 600;
+    }
+    .kbtn.selected{
+      border-width: 2px;
+      outline: 2px solid #333;
+    }
+    .kbtn:disabled{
+      opacity: .35;
+      cursor: not-allowed;
+    }
+
+    /* Route display */
+    .routeBox{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      margin-top: 8px;
+    }
+    .route{
+      border:1px solid #c8c8c8;
+      border-radius: 999px;
+      padding: 6px 12px;
+      font-size: 13px;
+      background:#fff;
+    }
+    .route .k{ font-weight: 800; margin-right: 8px; }
+    .route.pass{ border-color:#111; }
+    .route.na{ opacity:.55; }
+
+    /* Title screen */
+    .titleGrid{
+      display:grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 12px;
+      margin-top: 12px;
+    }
+    .levelBtn{
+      text-align:left;
+      padding: 12px;
+      border-radius: 16px;
+      border: 1px solid #bdbdbd;
+      background:#fff;
+      min-height: 92px;
+      display:flex;
+      flex-direction:column;
+      justify-content:space-between;
+    }
+    .levelBtn b{ font-size: 16px; }
+    .levelBtn span{ font-size: 12px; color: var(--muted); }
+
+    /* Screw layout */
+    #screwArea {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    #screwArea .screwRow {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    #screwArea input[type="range"] { flex: 1; }
+
+    #screwArea button{
+      min-width: 44px;
+      min-height: 44px;
+      font-size: 18px;
+    }
+    #screwVal{
+      font-size: 1.3rem;
+      font-weight: 700;
+    }
+
+    /* RAM */
+    .ramBox{
+      display:flex;
+      gap:10px;
+      align-items:center;
+      flex-wrap: wrap;
+    }
+    .ramValue{
+      font-size: 1.1rem;
+      font-weight: 800;
+    }
+
+    @media (max-width: 860px){
+      .btnGrid{ grid-template-columns: repeat(5, minmax(0, 1fr)); }
+      .titleGrid{ grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+    @media (max-width: 520px){
+      body{ padding: 12px; }
+      h1{ font-size: 20px; }
+      .btnGrid{ grid-template-columns: repeat(3, minmax(0, 1fr)); }
+      .titleGrid{ grid-template-columns: 1fr; }
+      button{ font-size: 16px; }
+      pre{ font-size: 14px; }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="wrap">
+    <!-- TITLE -->
+    <section id="screenTitle" class="card">
+      <h1>粗地高さゲーム</h1>
+      <div class="small">
+        目的：計算暗記ではなく、黒板の検算ロジック理解。<br>
+        LEVEL2：ラムで pMAX' が変化（検算の形は同じ）。<br>
+        LEVEL1は 5問連続正解で昇格。LEVEL2は昇格なし（ラム固定セット巡回）。
+      </div>
+
+      <div class="titleGrid" id="titleLevelGrid"></div>
+
+      <div class="row small">
+        ※金敷はボタン式（最大3枚・重複不可・未選択＝0）。<br>
+        ※LEVEL2は 1セット3問でラム固定、順番固定で巡回（UIはロック表示）。
+      </div>
+    </section>
+
+    <!-- GAME -->
+    <section id="screenGame" class="card" style="display:none; margin-top:14px;">
+      <div class="topbar">
+        <div>
+          <div>
+            レベル: <b id="levelLabel">-</b>
+            <span class="pill" style="margin-left:10px;">連続正解: <b id="streak">0</b></span>
+            <span class="pill" style="margin-left:6px; display:none;" id="setInfo">-</span>
+          </div>
+          <div class="small" id="levelHint">-</div>
+        </div>
+        <div style="display:flex; gap:10px; flex-wrap:wrap;">
+          <button id="btnToTitle">タイトルへ</button>
+          <button id="btnNext">次の問題</button>
+        </div>
+      </div>
+
+      <div class="row">
+        目標値(target):
+        <span id="target" style="
+          font-size: 1.8rem;
+          font-weight: 800;
+          color: #c40000;
+          margin-left: 6px;
+        ">-</span>
+      </div>
+
+      <div class="row" id="pmaxArea">
+        base_pMAX:
+        <label style="margin-right:12px;">
+          <input type="radio" name="pmax" value="175" checked>175
+        </label>
+        <label>
+          <input type="radio" name="pmax" value="210">210
+        </label>
+        <span class="small" id="pmaxNote" style="margin-left:10px;"></span>
+      </div>
+
+      <!-- RAM (LEVEL2 only, locked UI) -->
+      <div class="row" id="ramArea" style="display:none;">
+        <div class="ramBox">
+          <div>ラム(ram):</div>
+          <button id="ramDown">-</button>
+          <div class="ramValue" id="ramVal">0</div>
+          <button id="ramUp">+</button>
+          <span class="small">（5mm刻み / 固定）</span>
+        </div>
+        <div class="small" id="ramExplain" style="margin-top:6px;">-</div>
+      </div>
+
+      <div class="row" id="screwArea">
+        ねじ入力(s_value):
+
+        <div class="screwRow">
+          <button id="screwDown">&lt;</button>
+          <input id="screw" type="range" />
+          <button id="screwUp">&gt;</button>
+        </div>
+
+        <div style="display:flex; align-items:baseline; gap:8px;">
+          <b id="screwVal">-</b>
+          <span class="small">(18〜52)</span>
+        </div>
+
+        <span class="small">screw_MIN=18 / F=53</span>
+      </div>
+
+      <div class="row" id="kanashikiArea">
+        <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
+          <div>金敷選択（最大3枚・重複不可）</div>
+          <button id="kclear">クリア</button>
+          <div class="small">未選択＝0</div>
+        </div>
+
+        <div class="row small" style="margin-top:8px;">
+          選択中: <span id="ksel"></span>
+          / 合計(k_value)= <b id="ksum">0</b>
+        </div>
+
+        <div id="kgrid" class="btnGrid"></div>
+      </div>
+
+      <div class="row">
+        <button id="btnCheck">判定</button>
+      </div>
+
+      <div class="row">
+        <div class="small">検算ルート（表示のみ／採点対象はレベルで固定）</div>
+        <div id="routes" class="routeBox"></div>
+      </div>
+
+      <div class="row">
+        <pre id="board" class="mono"></pre>
+        <div id="notes" class="small" style="margin-top:8px;"></div>
+      </div>
+    </section>
+  </div>
+
+  <script src="machine_config.js"></script>
+  <script src="engine.js"></script>
+
+  <script>
+    // ---------- State ----------
+    const Screen = { TITLE: "TITLE", GAME: "GAME" };
+    let screen = Screen.TITLE;
+
+    let levelIndex = 0;
+    let target = null;
+    let prevTarget = null;
+    let streak = 0;
+
+    // LEVEL2 RAM set state
+    let ramSetIndex = 0;
+    let ramQuestionNo = 1; // 1..questions_per_set
+
+    // kanashiki selection
+    let selectedKanashiki = [];
+
+    // ---------- DOM ----------
+    const screenTitle = document.getElementById("screenTitle");
+    const screenGame  = document.getElementById("screenGame");
+    const titleGrid   = document.getElementById("titleLevelGrid");
+
+    const elLevelLabel = document.getElementById("levelLabel");
+    const elLevelHint  = document.getElementById("levelHint");
+    const elSetInfo    = document.getElementById("setInfo");
+    const elStreak     = document.getElementById("streak");
+    const elTarget     = document.getElementById("target");
+
+    const elPmaxNote   = document.getElementById("pmaxNote");
+    const pmaxRadios   = Array.from(document.querySelectorAll("input[name='pmax']"));
+
+    const elRamArea    = document.getElementById("ramArea");
+    const elRamVal     = document.getElementById("ramVal");
+    const elRamExplain = document.getElementById("ramExplain");
+    const btnRamDown   = document.getElementById("ramDown");
+    const btnRamUp     = document.getElementById("ramUp");
+
+    const elScrew      = document.getElementById("screw");
+    const elScrewVal   = document.getElementById("screwVal");
+
+    const elKGrid      = document.getElementById("kgrid");
+    const elKSel       = document.getElementById("ksel");
+    const elKSum       = document.getElementById("ksum");
+
+    const elRoutes     = document.getElementById("routes");
+    const elBoard      = document.getElementById("board");
+    const elNotes      = document.getElementById("notes");
+
+    // ---------- Helpers ----------
+    function currentLevel() { return MACHINE_CONFIG.levels[levelIndex]; }
+
+    function chosenBasePmax() {
+      const lv = currentLevel();
+      if (lv.pmaxMode === "FIX_175") return MACHINE_CONFIG.pmax_screw;
+      if (lv.pmaxMode === "FIX_210") return MACHINE_CONFIG.pmax_kanashiki;
+      return Number(document.querySelector("input[name='pmax']:checked").value);
+    }
+
+    function currentRam() {
+      const lv = currentLevel();
+      if (!MACHINE_CONFIG.ram.enabled_level_keys.includes(lv.key)) return 0;
+      const cycle = MACHINE_CONFIG.ram.cycle_mm;
+      return cycle[ramSetIndex % cycle.length];
+    }
+
+    function pmaxPrime(basePmax, ram) {
+      return basePmax + (ram || 0);
+    }
+
+    function setPmaxUI() {
+      const lv = currentLevel();
+      if (lv.pmaxMode === "CHOICE") {
+        pmaxRadios.forEach(r => r.disabled = false);
+        elPmaxNote.textContent = "（毎問選択可）";
+      } else {
+        pmaxRadios.forEach(r => r.disabled = true);
+        const fixed = (lv.pmaxMode === "FIX_175") ? 175 : 210;
+        document.querySelector(`input[name='pmax'][value="${fixed}"]`).checked = true;
+        elPmaxNote.textContent = `（このレベルは base_pMAX=${fixed} 固定）`;
+      }
+    }
+
+    function levelHintText(lv, basePmax, ram) {
+      if (lv.key === "LEVEL1-1") {
+        return (basePmax === 175)
+          ? "base=175：check_cal1のみ"
+          : "base=210：check_cal1・2・3（OR）";
+      }
+      if (lv.key === "LEVEL1-2") return "check_cal2のみ";
+      if (lv.key === "LEVEL1-3") return "check_cal3のみ";
+
+      if (lv.key === "LEVEL2-1") {
+        return `LEVEL2-1：ram固定（175世界） / pMAX'=${basePmax}+(${ram})`;
+      }
+      if (lv.key === "LEVEL2-2") {
+      return `LEVEL2-2：ram固定（210世界） / pMAX'=${basePmax}+(${ram})`;
+      }
+    }
+    // ---------- Screw ----------
+    function initScrew() {
+      elScrew.min = MACHINE_CONFIG.screw_min;
+      elScrew.max = MACHINE_CONFIG.screw_max;
+      elScrew.value = MACHINE_CONFIG.screw_min;
+      elScrewVal.textContent = elScrew.value;
+      elScrew.addEventListener("input", () => {
+        elScrewVal.textContent = elScrew.value;
+      });
+    }
+
+    // micro adjust buttons
+    document.getElementById("screwDown").addEventListener("click", () => {
+      let v = Number(elScrew.value);
+      if (v > MACHINE_CONFIG.screw_min) {
+        elScrew.value = v - 1;
+        elScrewVal.textContent = elScrew.value;
+      }
+    });
+    document.getElementById("screwUp").addEventListener("click", () => {
+      let v = Number(elScrew.value);
+      if (v < MACHINE_CONFIG.screw_max) {
+        elScrew.value = v + 1;
+        elScrewVal.textContent = elScrew.value;
+      }
+    });
+
+    // ---------- Kanashiki ----------
+    function kSum() { return selectedKanashiki.reduce((a,b)=>a+b, 0); }
+
+    function renderKanashikiStatus() {
+      elKSum.textContent = String(kSum());
+
+      elKSel.innerHTML = "";
+      if (selectedKanashiki.length === 0) {
+        elKSel.textContent = "（なし）";
+      } else {
+        selectedKanashiki.forEach(v => {
+          const span = document.createElement("span");
+          span.className = "pill";
+          span.textContent = String(v);
+          elKSel.appendChild(span);
+        });
+      }
+
+      const full = selectedKanashiki.length >= MACHINE_CONFIG.kanashiki_max_pieces;
+      Array.from(elKGrid.querySelectorAll("button[data-val]")).forEach(btn => {
+        const v = Number(btn.dataset.val);
+        const isSel = selectedKanashiki.includes(v);
+        btn.classList.toggle("selected", isSel);
+        btn.disabled = (!isSel && full);
+      });
+    }
+
+    function toggleKanashiki(v) {
+      const idx = selectedKanashiki.indexOf(v);
+      if (idx >= 0) selectedKanashiki.splice(idx, 1);
+      else {
+        if (selectedKanashiki.length >= MACHINE_CONFIG.kanashiki_max_pieces) return;
+        if (!selectedKanashiki.includes(v)) selectedKanashiki.push(v);
+      }
+      renderKanashikiStatus();
+    }
+
+    function clearKanashiki() {
+      selectedKanashiki = [];
+      renderKanashikiStatus();
+    }
+
+    function buildKanashikiButtons() {
+      elKGrid.innerHTML = "";
+      MACHINE_CONFIG.kanashiki_values.forEach(v => {
+        const btn = document.createElement("button");
+        btn.className = "kbtn";
+        btn.dataset.val = String(v);
+        btn.textContent = String(v);
+        btn.addEventListener("click", () => toggleKanashiki(v));
+        elKGrid.appendChild(btn);
+      });
+      renderKanashikiStatus();
+    }
+
+    document.getElementById("kclear").addEventListener("click", () => clearKanashiki());
+
+    // ---------- Routes ----------
+    function renderRoutes(routeEval) {
+      const map = [
+        ["cal1", "check_cal1"],
+        ["cal2", "check_cal2"],
+        ["cal3", "check_cal3"],
+      ];
+
+      elRoutes.innerHTML = "";
+      for (const [key, label] of map) {
+        const v = routeEval ? routeEval.results[key] : "NA";
+        const div = document.createElement("div");
+        div.className = "route " + (v === "PASS" ? "pass" : (v === "NA" ? "na" : ""));
+        div.innerHTML = `<span class="k">${label}</span><span>${v === "PASS" ? "Y" : (v === "FAIL" ? "N" : "—")}</span>`;
+        elRoutes.appendChild(div);
+      }
+    }
+
+    // ---------- Screen ----------
+    function showTitle() {
+      screen = Screen.TITLE;
+      screenTitle.style.display = "";
+      screenGame.style.display = "none";
+    }
+
+    function showGame() {
+      screen = Screen.GAME;
+      screenTitle.style.display = "none";
+      screenGame.style.display = "";
+    }
+
+    // ---------- LEVEL2 RAM UI ----------
+    function renderRamUI() {
+      const lv = currentLevel();
+      const enabled = MACHINE_CONFIG.ram.enabled_level_keys.includes(lv.key);
+
+      if (!enabled) {
+        elRamArea.style.display = "none";
+        elSetInfo.style.display = "none";
+        return;
+      }
+
+      elRamArea.style.display = "";
+      elSetInfo.style.display = "";
+
+      const ram = currentRam();
+      const base = chosenBasePmax();
+      const pprime = pmaxPrime(base, ram);
+
+      elRamVal.textContent =
+        ram > 0 ? `${ram}↑` :
+        ram < 0 ? `${Math.abs(ram)}↓` :
+        `0`;
+      elSetInfo.textContent = `ラム固定セット ${ramQuestionNo}/${MACHINE_CONFIG.ram.questions_per_set}`;
+      elRamExplain.textContent = `pMAX' = base(${base}) + ram(${ram >= 0 ? "+"+ram : ram}) = ${pprime}`;
+
+      // UIロック（表示はするが操作不可）
+      const locked = !!MACHINE_CONFIG.ram.ui_locked;
+      btnRamDown.disabled = locked;
+      btnRamUp.disabled = locked;
+    }
+
+    // ---------- Game Flow ----------
+    function resetInputs() {
+      elScrew.value = MACHINE_CONFIG.screw_min;
+      elScrewVal.textContent = elScrew.value;
+      clearKanashiki();
+    }
+
+    function renderHeader() {
+      const lv = currentLevel();
+      const base = chosenBasePmax();
+      const ram = currentRam();
+      const pprime = pmaxPrime(base, ram);
+
+      const cands = buildCandidates({ levelKey: lv.key, base_pmax: base, pmax_prime: pprime, ram });
+      const [dmin, dmax] = getDesignRange({ levelKey: lv.key, ram });
+
+      const bandText = `設計帯: ${dmin}〜${dmax}` + (cands.length ? ` / 出題候補: ${Math.min(...cands)}〜${Math.max(...cands)}` : "");
+
+      elLevelLabel.textContent = lv.label;
+      elLevelHint.textContent = `${levelHintText(lv, base, ram)} / ${bandText}`;
+      elStreak.textContent = String(streak);
+      elTarget.textContent = (target == null) ? "-" : String(target);
+
+      setPmaxUI();
+      renderRamUI();
+    }
+
+    function newProblem() {
+      const lv = currentLevel();
+      const base = chosenBasePmax();
+      const ram = currentRam();
+      const pprime = pmaxPrime(base, ram);
+
+      prevTarget = target;
+      const t = generateTarget({ levelKey: lv.key, base_pmax: base, pmax_prime: pprime, ram, prevTarget });
+
+      if (t == null) {
+        elBoard.textContent = "❌ 出題候補がありません（成立条件が厳しすぎます）";
+        elNotes.textContent = "";
+        renderRoutes(null);
+        return;
+      }
+
+      target = t;
+      resetInputs();
+      renderHeader();
+
+      elBoard.textContent = "入力して「判定」を押してください。";
+      elNotes.textContent = "";
+      renderRoutes(null);
+    }
+
+    function advanceRamSetIfNeeded() {
+      const lv = currentLevel();
+      if (lv.key !== "LEVEL2-1" && lv.key !== "LEVEL2-2") return;
+
+      ramQuestionNo++;
+      if (ramQuestionNo > MACHINE_CONFIG.ram.questions_per_set) {
+        ramQuestionNo = 1;
+        ramSetIndex = (ramSetIndex + 1) % MACHINE_CONFIG.ram.cycle_mm.length;
+      }
+    }
+
+    function promoteIfNeeded_LEVEL1() {
+      const lv = currentLevel();
+      if ((lv.key === "LEVEL2-1" || lv.key === "LEVEL2-2")) return;
+
+      if (streak < MACHINE_CONFIG.promote_streak) return;
+
+      streak = 0;
+      levelIndex++;
+
+      if (levelIndex >= MACHINE_CONFIG.levels.length) {
+        levelIndex = MACHINE_CONFIG.levels.length - 1;
+        renderHeader();
+        elBoard.textContent = "✅ 最終レベルです";
+        elNotes.textContent = "";
+        return;
+      }
+
+      renderHeader();
+      elBoard.textContent = "✅ 昇格！ 次のLEVELへ移動します。";
+      elNotes.textContent = "";
+      setTimeout(() => newProblem(), 200);
+    }
+
+    function check() {
+      if (target == null) return;
+
+      const lv = currentLevel();
+      const base = chosenBasePmax();
+      const ram = currentRam();
+      const pprime = pmaxPrime(base, ram);
+
+      const s_value = Number(elScrew.value);
+      const k_value = kSum();
+
+      const ev = evalRoutes({ levelKey: lv.key, base_pmax: base, pmax_prime: pprime, target, s_value, k_value });
+      const bb = makeBlackboard({ target, pmaxPrime: pprime });
+
+      const notes = [
+        `base_pMAX=${base}, ram=${ram >= 0 ? "+"+ram : ram}, pMAX'=${pprime}`,
+        `入力: s_value=${s_value}, k_value=${k_value}`,
+        `派生: add1=k-F=${k_value}-${MACHINE_CONFIG.F_display}=${ev.add1}, add2=s-18=${s_value}-${MACHINE_CONFIG.screw_min}=${ev.add2}`,
+        `採点対象: ${ev.activeRoutes.map(r => r.replace("cal","check_cal")).join(", ")} / OR判定`
+      ].join(" / ");
+
+      renderRoutes(ev);
+
+      if (ev.isBroken) {
+        elBoard.textContent = "❌ 内部矛盾（採点対象がすべて判定不能）";
+        elNotes.textContent = notes;
+        return;
+      }
+
+      if (ev.isCorrect) {
+        streak++;
+        renderHeader();
+        elBoard.textContent = `✅ 正解\n\n${bb.text}`;
+        elNotes.textContent = notes;
+      } else {
+        streak = 0;
+        renderHeader();
+        elBoard.textContent = `❌ 不正解\n（誤答時表示）adjust = ${ev.adjust}\n\n${bb.text}`;
+        elNotes.textContent = notes;
+      }
+
+      // 判定を押したら「1問進行」扱いでセット進行
+      advanceRamSetIfNeeded();
+
+      // LEVEL1は昇格
+      promoteIfNeeded_LEVEL1();
+    }
+
+    // base_pMAX change
+    pmaxRadios.forEach(r => {
+      r.addEventListener("change", () => {
+        renderHeader();
+        resetInputs();
+        elBoard.textContent = "base_pMAXを切替えました。入力して「判定」を押してください。";
+        elNotes.textContent = "";
+        renderRoutes(null);
+      });
+    });
+
+    // RAM buttons (locked)
+    btnRamDown.addEventListener("click", () => {});
+    btnRamUp.addEventListener("click", () => {});
+
+    // ---------- Title UI ----------
+    function buildTitle() {
+      titleGrid.innerHTML = "";
+      MACHINE_CONFIG.levels.forEach((lv, idx) => {
+        const btn = document.createElement("button");
+        btn.className = "levelBtn";
+        btn.type = "button";
+
+        const mode = (lv.pmaxMode === "CHOICE") ? "base_pMAX選択" :
+                     (lv.pmaxMode === "FIX_175" ? "base_pMAX=175固定" : "base_pMAX=210固定");
+
+        let rangeText = `target: ${lv.designRange[0]}〜${lv.designRange[1]}`;
+        if (lv.key === "LEVEL2-1" || lv.key === "LEVEL2-2") {
+            rangeText = `base帯: ${lv.designRange[0]}〜${lv.designRange[1]}（ramで平行移動）`;
+        }
+
+        btn.innerHTML = `
+          <div>
+            <b>${lv.label}</b>
+            <div class="small">${mode}</div>
+          </div>
+          <span>${rangeText}</span>
+        `;
+
+        btn.addEventListener("click", () => {
+          levelIndex = idx;
+          streak = 0;
+          target = null;
+          prevTarget = null;
+
+          // LEVEL2 RAM state reset
+          if ((lv.key === "LEVEL2-1" || lv.key === "LEVEL2-2")) {
+            ramSetIndex = 0;
+            ramQuestionNo = 1;
+          }
+
+          showGame();
+          renderHeader();
+          newProblem();
+        });
+
+        titleGrid.appendChild(btn);
+      });
+    }
+
+    // ---------- Buttons ----------
+    document.getElementById("btnToTitle").addEventListener("click", () => showTitle());
+    document.getElementById("btnNext").addEventListener("click", () => newProblem());
+    document.getElementById("btnCheck").addEventListener("click", () => check());
+
+    // ---------- Init ----------
+    initScrew();
+    buildKanashikiButtons();
+    buildTitle();
+    showTitle();
+
+    if ("serviceWorker" in navigator) {
+      navigator.serviceWorker.register("sw.js");
+    }
+  </script>
+</body>
+</html>
