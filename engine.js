@@ -1,20 +1,48 @@
 // engine.js
-// 粗地高さゲーム v1.3（LEVEL2-1/LEVEL2-2 分割）
+// ============================================
+// 粗地高さゲーム エンジン
+// - 目標(target)生成（成立フィルタあり）
+// - 検算ルート eval（PASS/FAIL/NA）
+// - 黒板表示（3段固定）※判定前は答えを隠す対応
+// ============================================
 //
-// 定義：
-// base_pMAX = 175 or 210（世界判定の軸）
-// ram(mm) = -20..+30（5mm刻み）※LEVEL2は出題側が固定
-// pMAX' = base_pMAX + ram（計算に使う最大高さ）
-// adjust = pMAX' - target（絶対軸は維持）
+// 表記（内部変数）
+// target   : 粗地高さ（target）
+// base_pmax: 最大高さ（base_pMAX） 175 or 210
+// ram      : ラム（ram）
+// pmax'    : 最大高さ±ラム（pMAX'） = base_pMAX + ram
+// adjust   : 調整値（adjust） = pMAX' - target
+// s_value  : ねじ値（s_value）
+// k_value  : 金敷合計値（k_value）
 //
 // add1 = k - F
 // add2 = s - screw_MIN
 //
 // check_cal1:
-//   base=175: s == adjust
+//   base=175: (s == adjust) AND (k == F)   ← ズル防止（F前提）
 //   base=210: F + add1 == adjust  <=> k == adjust
 // check_cal2: s + add1 == adjust
 // check_cal3: add2 + k == adjust
+//
+// ルート有効化（現状）
+// - LEVEL1-1: base=175 -> cal1のみ / base=210 -> cal1,2,3（OR）
+// - LEVEL1-2: cal2のみ
+// - LEVEL1-3: cal3のみ
+// - LEVEL2-1: cal1のみ
+// - LEVEL2-2: cal1,2,3（OR）
+// - LEVEL3-1: cal1のみ（当て物/175）
+// - LEVEL3-2: cal1,2,3（当て物/210）
+//
+// ============================================
+// ===== <LEVEL3用の箱（将来拡張）> =====
+// - 成立ルート表示の強調
+// - 当て物を絡めた「X = target or target+pad」説明
+// ============================================
+//
+// ============================================
+// ===== <LEVEL4用の箱（将来拡張）> =====
+// - 175/210混在 + ラム混在 + 反復（無制限）
+// ============================================
 
 function randomInt(min, max) {
   return Math.floor(Math.random() * (max - min + 1)) + min;
@@ -24,18 +52,40 @@ function calcAdjust(pmaxPrime, target) {
   return pmaxPrime - target;
 }
 
-function inRange(v, min, max) {
+function inRangeInt(v, min, max) {
   return Number.isInteger(v) && v >= min && v <= max;
 }
 
-// --- Kanashiki sums (0.., up to N pieces, no duplicates) ---
+// =========================
+// ===== 当て物ヘルパー =====
+// UI側(index)で「注記」を作るための共通関数
+// （表示targetは変えず、内部計算だけeffective_targetにする方針）
+// =========================
+function calcEffectiveTargetForAte({ target, pad_mm, pressStage }) {
+  // pressStage=1: effective_target = target
+  // pressStage=2: effective_target = target + pad_mm
+  if (pressStage === 2) return target + (pad_mm || 0);
+  return target;
+}
+
+function makeAteNote({ target, pad_mm, pressStage }) {
+  if (!pressStage || pressStage === 1) {
+    return `※当て物：${pad_mm}mm / プレス1回目（内部計算は target のまま）`;
+  }
+  const eff = target + (pad_mm || 0);
+  return `※当て物：${pad_mm}mm / プレス2回目（内部計算：target+${pad_mm} → ${eff}）`;
+}
+
+// =========================
+// ===== 金敷合計候補 =====
+// =========================
 function buildKanashikiPossibleSums() {
   const vals = MACHINE_CONFIG.kanashiki_values.slice().sort((a, b) => a - b);
   const maxPieces = MACHINE_CONFIG.kanashiki_max_pieces;
   const allowDup = !!MACHINE_CONFIG.kanashiki_allow_duplicates;
 
   const set = new Set();
-  set.add(0); // "no selection" allowed
+  set.add(0); // 「選ばない」＝0 を許容（練習用）
 
   for (let i = 0; i < vals.length; i++) set.add(vals[i]);
 
@@ -67,8 +117,9 @@ function buildKanashikiPossibleSums() {
 }
 const KSUMS = buildKanashikiPossibleSums();
 
-// --- Active routes by spec ---
-// ※世界判定は pMAX' ではなく base_pMAX で行う（ここが重要）
+// =========================
+// ===== ルート有効化 =====
+// =========================
 function getActiveRoutes(levelKey, basePmax) {
   if (levelKey === "LEVEL1-1") {
     if (basePmax === MACHINE_CONFIG.pmax_screw) return ["cal1"];
@@ -77,14 +128,19 @@ function getActiveRoutes(levelKey, basePmax) {
   if (levelKey === "LEVEL1-2") return ["cal2"];
   if (levelKey === "LEVEL1-3") return ["cal3"];
 
-  // LEVEL2 split
-  if (levelKey === "LEVEL2-1") return ["cal1"];                 // 175世界
-  if (levelKey === "LEVEL2-2") return ["cal1", "cal2", "cal3"]; // 210世界
+  if (levelKey === "LEVEL2-1") return ["cal1"];
+  if (levelKey === "LEVEL2-2") return ["cal1", "cal2", "cal3"];
+
+  // ---- LEVEL3（当て物） ----
+  if (levelKey === "LEVEL3-1") return ["cal1"];
+  if (levelKey === "LEVEL3-2") return ["cal1", "cal2", "cal3"];
 
   return ["cal1"];
 }
 
-// --- Route evaluation (PASS/FAIL/NA) ---
+// =========================
+// ===== ルート評価 =====
+// =========================
 function evalRoutes({ levelKey, base_pmax, pmax_prime, target, s_value, k_value }) {
   const adjust = calcAdjust(pmax_prime, target);
 
@@ -102,17 +158,22 @@ function evalRoutes({ levelKey, base_pmax, pmax_prime, target, s_value, k_value 
   // cal1
   if (!isInactive("cal1")) {
     if (base_pmax === MACHINE_CONFIG.pmax_screw) {
-      results.cal1 = (s_value === adjust) ? "PASS" : "FAIL";
+      // 175側：F前提（k==F）を追加してズル防止
+      results.cal1 = (s_value === adjust && k_value === F) ? "PASS" : "FAIL";
     } else {
       results.cal1 = ((F + add1) === adjust) ? "PASS" : "FAIL"; // <=> k==adjust
     }
   }
 
   // cal2
-  if (!isInactive("cal2")) results.cal2 = ((s_value + add1) === adjust) ? "PASS" : "FAIL";
+  if (!isInactive("cal2")) {
+    results.cal2 = ((s_value + add1) === adjust) ? "PASS" : "FAIL";
+  }
 
   // cal3
-  if (!isInactive("cal3")) results.cal3 = ((add2 + k_value) === adjust) ? "PASS" : "FAIL";
+  if (!isInactive("cal3")) {
+    results.cal3 = ((add2 + k_value) === adjust) ? "PASS" : "FAIL";
+  }
 
   const activeResults = active.map(r => results[r]);
   const anyPass = activeResults.includes("PASS");
@@ -129,7 +190,11 @@ function evalRoutes({ levelKey, base_pmax, pmax_prime, target, s_value, k_value 
   };
 }
 
-// --- Solvability checks ---
+// =========================
+// ===== 成立フィルタ（LEVEL1/2/3用）=====
+// 注意：ここで使う target は「計算用target」前提
+//       （当て物2回目なら effective_target を渡す設計）
+// =========================
 function isSolvableTarget({ levelKey, base_pmax, pmax_prime, target }) {
   const adjust = calcAdjust(pmax_prime, target);
   if (adjust < 0) return false;
@@ -143,7 +208,7 @@ function isSolvableTarget({ levelKey, base_pmax, pmax_prime, target }) {
   function existsKforS(calcS) {
     for (const k of KSUMS.list) {
       const s = calcS(k);
-      if (inRange(s, screwMin, screwMax)) return true;
+      if (inRangeInt(s, screwMin, screwMax)) return true;
     }
     return false;
   }
@@ -151,7 +216,8 @@ function isSolvableTarget({ levelKey, base_pmax, pmax_prime, target }) {
   for (const route of active) {
     if (route === "cal1") {
       if (base_pmax === MACHINE_CONFIG.pmax_screw) {
-        if (inRange(adjust, screwMin, screwMax)) return true;
+        // 175側：adjustがねじ範囲に入っていればOK（kはF前提）
+        if (inRangeInt(adjust, screwMin, screwMax)) return true;
       } else {
         if (KSUMS.set.has(adjust)) return true;
       }
@@ -171,7 +237,9 @@ function isSolvableTarget({ levelKey, base_pmax, pmax_prime, target }) {
   return false;
 }
 
-// LEVELの「設計レンジ」を返す（LEVEL2-1/2-2はramで平行移動）
+// =========================
+// ===== target帯（LEVEL2はramで平行移動）=====
+// =========================
 function getDesignRange({ levelKey, ram }) {
   const lv = MACHINE_CONFIG.levels.find(x => x.key === levelKey);
   if (!lv) return [0, 0];
@@ -180,9 +248,13 @@ function getDesignRange({ levelKey, ram }) {
   if (levelKey === "LEVEL2-1" || levelKey === "LEVEL2-2") {
     return [a + (ram || 0), b + (ram || 0)];
   }
+  // LEVEL3（当て物）は target帯をそのまま扱う（effective_targetはUI側で対応）
   return [a, b];
 }
 
+// =========================
+// ===== target生成（同一target連続禁止）=====
+// =========================
 function buildCandidates({ levelKey, base_pmax, pmax_prime, ram }) {
   const [minT, maxT] = getDesignRange({ levelKey, ram });
   const arr = [];
@@ -204,11 +276,23 @@ function generateTarget({ levelKey, base_pmax, pmax_prime, ram, prevTarget }) {
   return t;
 }
 
-// Blackboard fixed 3 lines
-function makeBlackboard({ target, pmaxPrime }) {
+// =========================
+// ===== 黒板（3段固定）=====
+// - 判定前：revealAdjust=false で答えを隠す
+// - 判定後：revealAdjust=true で答えを表示
+// =========================
+function makeBlackboard({ target, pmaxPrime, revealAdjust = true }) {
   const adjust = calcAdjust(pmaxPrime, target);
-  const line1 = `target = ${target}`;
-  const line2 = `adjust = ${pmaxPrime} - ${target} = ${adjust}`;
-  const line3 = `検算: ${target} + ${adjust} = ${pmaxPrime}`;
-  return { text: [line1, line2, line3].join("\n"), adjust };
+
+  const line1 = `粗地高さ（target） = ${target}`;
+
+  if (revealAdjust) {
+    const line2 = `調整値（adjust） = ${pmaxPrime} - ${target} = ${adjust}`;
+    const line3 = `検算：${target} + ${adjust} = ${pmaxPrime}`;
+    return { text: [line1, line2, line3].join("\n"), adjust };
+  } else {
+    const line2 = `調整値（adjust） = ${pmaxPrime} - ${target} = ?`;
+    const line3 = `検算：${target} + ? = ${pmaxPrime}`;
+    return { text: [line1, line2, line3].join("\n"), adjust };
+  }
 }
