@@ -4,6 +4,7 @@
 // - ねじ範囲、金敷リスト、レベル定義、ラム巡回設定
 // - LEVEL0（原理授業）ステップ＆2択クイズ
 // - LEVEL3（当て物）設定（4問セット固定）
+// - LEVEL4（総合）抽選設定（教育寄り）
 // ============================================
 
 const MACHINE_CONFIG = {
@@ -52,12 +53,12 @@ const MACHINE_CONFIG = {
 
     // ---- LEVEL3（当て物） ----
     // ラム無し
-    // 3-1: base_pMAX=175 固定（cal1想定）
-    // 3-2: base_pMAX=210 固定（target帯は計算不可能回避のため 79〜200）
     { key: "LEVEL3-1", label: "LEVEL3-1（当て物/175）", designRange: [79, 210], pmaxMode: "FIX_175" },
-    { key: "LEVEL3-2", label: "LEVEL3-2（当て物/210）", designRange: [79, 200], pmaxMode: "FIX_210" }
+    { key: "LEVEL3-2", label: "LEVEL3-2（当て物/210）", designRange: [79, 200], pmaxMode: "FIX_210" },
 
-    // （将来）LEVEL4はここに追加
+    // ---- LEVEL4（総合） ----
+    // ※出題は index.html 側で「抽選して既存レベルを呼ぶ」方式
+    { key: "LEVEL4", label: "LEVEL4（総合）", designRange: [79, 210], pmaxMode: "CHOICE" }
   ],
 
   // =========================
@@ -80,13 +81,6 @@ const MACHINE_CONFIG = {
   // - 1セット4問（固定順）
   // - 指定：+5 一回目 → +10 一回目 → +5 二回目 → +10 二回目
   // - 表示targetは「元target」のまま（UIで注記を出す）
-  //
-  // 用語：
-  // - pressStage: 1 or 2
-  // - pad_mm: 5 or 10
-  // - effective_target:
-  //   pressStage=1: effective_target = target
-  //   pressStage=2: effective_target = target + pad_mm
   // =========================
   ate: {
     enabled_level_keys: ["LEVEL3-1", "LEVEL3-2"],
@@ -101,8 +95,28 @@ const MACHINE_CONFIG = {
   },
 
   // =========================
+  // ===== LEVEL4（総合）抽選設定 =====
+  // - 教育寄り：LEVEL1多め
+  // - 数字だけで確率を変えられるようにする
+  // =========================
+  level4: {
+    // 大分類の重み（合計は何でもOK：比率で使う）
+    // 例：L1:60, L2:25, L3:15 など自由
+    weights: {
+      L1: 60, // 基本（多め）
+      L2: 25, // ラム
+      L3: 15  // 当て物（少なめ）
+    },
+    // 大分類ごとの候補レベル
+    pools: {
+      L1: ["LEVEL1-1", "LEVEL1-2", "LEVEL1-3"],
+      L2: ["LEVEL2-1", "LEVEL2-2"],
+      L3: ["LEVEL3-1", "LEVEL3-2"]
+    }
+  },
+
+  // =========================
   // ===== ヘルプ（？）文言 =====
-  // ※現在は「？」UIを撤去しているが、残しても害なし（将来用）
   // =========================
   help_text: {
     "LEVEL1-1": [
@@ -145,9 +159,6 @@ const MACHINE_CONFIG = {
 
 // ============================================
 // LEVEL0（原理授業）
-// - ステップ式（前へ/次へ）
-// - 各ステップに2択（正解まで次へ不可）
-// - 表記：基本日本語（英語）
 // ============================================
 MACHINE_CONFIG.level0_steps = [
   {
@@ -170,7 +181,7 @@ MACHINE_CONFIG.level0_steps = [
     title: "LEVEL0-2：粗地高さと調整値",
     body: [
       "粗地高さ（target）は「作りたい高さ」です。",
-      "調整値（adjust）は「完成高さから引いた差」です。"
+      "調整値（adjust）は「最大高さから引いた差」です。"
     ],
     formula: [
       "粗地高さ（target） = 作りたい高さ",
@@ -186,7 +197,7 @@ MACHINE_CONFIG.level0_steps = [
     title: "LEVEL0-3：検算（絶対軸）",
     body: [
       "最後に必ず検算します。",
-      "粗地高さ（target）＋調整値（adjust）が完成高さなら正しい。"
+      "粗地高さ（target）＋調整値（adjust）が最大高さなら正しい。"
     ],
     formula: [
       "検算：target + adjust = base_pMAX"
@@ -241,6 +252,43 @@ MACHINE_CONFIG.level0_steps = [
     quiz: {
       q: "210側の基本思想は？",
       options: ["ねじ値（s_value）主体", "金敷合計値（k_value）主体"],
+      answerIndex: 1
+    }
+  },
+  {
+    title: "LEVEL0-7：ラム（ram）の概念",
+    body: [
+      "ラム（ram）は、最大高さ（base_pMAX）を動かす要素です。",
+      "pMAX' = base_pMAX + ram",
+      "ラムが付くと、粗地高さ（target）の成立帯が平行移動します。",
+      "表示は「5mm上げる → 5↑」「5mm下げる → 5↓」です。"
+    ],
+    formula: [
+      "pMAX' = base_pMAX + ram",
+      "adjust = pMAX' - target",
+      "検算：target + adjust = pMAX'"
+    ],
+    quiz: {
+      q: "ラム（ram）が変えるのはどれ？",
+      options: ["粗地高さ（target）", "最大高さ（base_pMAX）"],
+      answerIndex: 1
+    }
+  },
+  {
+    title: "LEVEL0-8：当て物（プレス1回目/2回目）の概念（雛形）",
+    body: [
+      "当て物は 5mm / 10mm の厚みがあり、プレス1回目か2回目のどちらかで使います。",
+      "プレス1回目の当て物は『芯出し』目的で、計算は通常通りです。",
+      "プレス2回目の当て物は『潰し過ぎ防止』目的で、targetを置換して計算します。"
+    ],
+    formula: [
+      "プレス1回目：adjust = pMAX - target（通常）",
+      "プレス2回目：effective_target = target + 当て物厚",
+      "　　　　　adjust = pMAX - (target + 当て物厚)"
+    ],
+    quiz: {
+      q: "プレス2回目で当て物を使うとき、計算で置換するのは？",
+      options: ["pMAX を置換する", "target 置換する"],
       answerIndex: 1
     }
   }

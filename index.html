@@ -60,11 +60,6 @@
     .title{ font-size: 20px; font-weight: 800; margin: 0 0 10px 0; }
     .levelList{ display:flex; flex-direction:column; gap:10px; }
 
-    .levelCard{ border:1px solid var(--border); border-radius: 14px; padding: 12px; background:#fff; }
-    .levelCard .k{ font-weight: 800; }
-    .levelCard .d{ color: var(--muted); font-size: 12px; margin-top: 6px; line-height: 1.4; }
-    .levelCard .goRow{ margin-top:10px; display:flex; gap:10px; }
-
     .targetBox{ margin-top: 8px; padding: 10px 12px; border-radius: 14px; border:1px solid #ffd1d1; background: #fff4f4; }
     .targetLabel{ color:#c62828; font-weight: 800; }
     .targetVal{ font-size: 30px; font-weight: 900; color:#c62828; margin-left: 8px; }
@@ -143,6 +138,14 @@
 
     .noteLine{ margin-top: 8px; color: var(--muted); font-size: 12px; line-height: 1.35; }
 
+    /* ★ここが今回の修正（当て物行を「ねじ値」と同格に） */
+    #ateLine{
+      color: var(--ink);
+      font-size: 16px;      /* ねじ値ラベルと同等の見え方 */
+      font-weight: 900;    /* 太字 */
+      line-height: 1.35;   /* 改行や文章構造は変えない */
+    }
+
     .calcMask{ display:none; position: fixed; inset: 0; background: rgba(0,0,0,0.25); z-index: 9998; }
     .calcPanel{
       display:none;
@@ -201,6 +204,20 @@
     .l0Choices button{ flex: 1 1 140px; min-height: 52px; font-weight: 900; }
     .l0Nav{ display:flex; align-items:center; justify-content:space-between; gap:10px; margin-top: 12px; }
     .muted{ color: var(--muted); font-size: 12px; }
+
+    /* ===== タイトル：マリオ式UI（大分類） ===== */
+    .groupCard{ border:1px solid var(--border); border-radius:14px; padding:12px; background:#fff; }
+    .groupHead{ display:flex; align-items:center; justify-content:space-between; gap:10px; cursor:pointer; }
+    .groupHead .k{ font-weight:900; }
+    .groupHead .d{ color:var(--muted); font-size:12px; margin-top:6px; line-height:1.4; }
+    .groupToggle{ width:44px; height:44px; }
+    .groupBody{ margin-top:10px; display:none; }
+    .groupBody.on{ display:block; }
+
+    .stageItem{ border:1px solid #e6e6e6; border-radius:14px; padding:10px 12px; background:#fafafa; }
+    .stageTop{ display:flex; align-items:flex-start; justify-content:space-between; gap:10px; }
+    .stageName{ font-weight:900; }
+    .stageMeta{ color:var(--muted); font-size:12px; margin-top:6px; line-height:1.4; }
   </style>
 </head>
 
@@ -300,15 +317,15 @@
           <span class="targetLabel">mm</span>
         </div>
 
-        <!-- ===== ラム表示（LEVEL2のみ） ===== -->
+        <!-- ===== 当て物表示（LEVEL3/4で当て物が出るとき） ===== -->
+        <div class="noteLine hide" id="ateLine"></div>
+
+        <!-- ===== ラム表示（LEVEL2/4でラムが出るとき） ===== -->
         <div class="ramLine" id="ramLine" style="display:none;">
           <span>ラム</span>
           <span class="ramVal" id="ramVal">0</span>
           <span>（最大高さ±ラム（pMAX'） = 最大高さ（base_pMAX） + ラム）</span>
         </div>
-
-        <!-- ===== 当て物表示（LEVEL3のみ） ===== -->
-        <div class="noteLine hide" id="ateLine"></div>
       </div>
 
       <!-- ============================= -->
@@ -402,6 +419,9 @@
       // LEVEL3（当て物）
       ateIndex: 0,
       ateSetQCount: 0,
+
+      // LEVEL4（総合）
+      level4PickKey: null,
 
       // 共通
       streak: 0,
@@ -547,43 +567,158 @@
     }
 
     // =========================================================
-    // ===== タイトル：レベル一覧描画 =====
+    // ===== LEVEL4：抽選（教育寄り）=====
+    // =========================================================
+    function pickWeightedKey(weightsObj) {
+      const entries = Object.entries(weightsObj).filter(([, w]) => Number(w) > 0);
+      const total = entries.reduce((a, [, w]) => a + Number(w), 0);
+      if (total <= 0) return null;
+      let r = Math.random() * total;
+      for (const [k, wRaw] of entries) {
+        const w = Number(wRaw);
+        r -= w;
+        if (r <= 0) return k;
+      }
+      return entries[entries.length - 1][0];
+    }
+
+    function pickLevel4EffectiveKey() {
+      const cfg = MACHINE_CONFIG.level4;
+      if (!cfg || !cfg.weights || !cfg.pools) return "LEVEL1-2";
+      const cat = pickWeightedKey(cfg.weights); // "L1" | "L2" | "L3"
+      const pool = (cfg.pools[cat] || []);
+      if (!pool.length) return "LEVEL1-2";
+      return pool[Math.floor(Math.random() * pool.length)];
+    }
+
+    function effectiveLevelKey() {
+      return (state.levelKey === "LEVEL4" && state.level4PickKey)
+        ? state.level4PickKey
+        : state.levelKey;
+    }
+
+    function applyBasePmaxForLevel(lvKey) {
+      const lv = getLevelDef(lvKey);
+      if (!lv) return;
+
+      if (lv.pmaxMode === "FIX_175") state.basePmax = MACHINE_CONFIG.pmax_screw;
+      else if (lv.pmaxMode === "FIX_210") state.basePmax = MACHINE_CONFIG.pmax_kanashiki;
+      else if (lv.pmaxMode === "CHOICE") state.basePmax = MACHINE_CONFIG.pmax_screw;
+    }
+
+    // =========================================================
+    // ===== タイトル：レベル一覧（順番 0→1→2→3→4）=====
     // =========================================================
     function renderLevelList() {
       levelList.innerHTML = "";
 
-      // --- LEVEL0 ---
-      const card0 = document.createElement("div");
-      card0.className = "levelCard";
-      card0.innerHTML = `
-        <div class="k">LEVEL0（原理）</div>
-        <div class="d">原理の順番を段階的に確認（2択で次へ解放）。</div>
-        <div class="goRow"><button class="btnWide btnPrimary" id="goL0">開始</button></div>
+      // 0) LEVEL0
+      const l0 = document.createElement("div");
+      l0.className = "stageItem";
+      l0.innerHTML = `
+        <div class="stageTop">
+          <div>
+            <div class="stageName">LEVEL0（原理）</div>
+            <div class="stageMeta">原理の順番を段階的に確認（2択で次へ解放）。</div>
+          </div>
+          <button class="btnIcon btnPrimary" id="goL0" aria-label="start level0">▶</button>
+        </div>
       `;
-      levelList.appendChild(card0);
-      card0.querySelector("#goL0").addEventListener("click", () => startLevel0());
+      levelList.appendChild(l0);
+      l0.querySelector("#goL0").addEventListener("click", () => startLevel0());
 
-      // --- LEVEL1/2/3 ---
+      // 1)〜3) GROUP
+      const groups = new Map();
       for (const lv of MACHINE_CONFIG.levels) {
-        const card = document.createElement("div");
-        card.className = "levelCard";
+        if (lv.key === "LEVEL4") continue;
+        const g = (lv.key || "").split("-")[0];
+        if (!groups.has(g)) groups.set(g, []);
+        groups.get(g).push(lv);
+      }
 
-        const baseText = (lv.pmaxMode === "CHOICE") ? "最大高さ（base_pMAX）：175/210 選択" :
-                         (lv.pmaxMode === "FIX_175") ? "最大高さ（base_pMAX）：175 固定" :
-                         (lv.pmaxMode === "FIX_210") ? "最大高さ（base_pMAX）：210 固定" : "最大高さ（base_pMAX）：-";
+      const order = ["LEVEL1", "LEVEL2", "LEVEL3"];
+      for (const g of order) {
+        const arr = groups.get(g);
+        if (!arr || arr.length === 0) continue;
 
-        const ramText2 = isRamLevel(lv.key) ? " / ラム：セット固定(3問)" : " / ラム：なし";
-        const ateText2 = isAteLevel(lv.key) ? " / 当て物：セット固定(4問)" : "";
+        arr.sort((a, b) => (a.key < b.key ? -1 : a.key > b.key ? 1 : 0));
 
-        card.innerHTML = `
-          <div class="k">${lv.label}</div>
-          <div class="d">${baseText}${ramText2}${ateText2} / 粗地高さ（target）帯：${lv.designRange[0]}〜${lv.designRange[1]}</div>
-          <div class="goRow"><button class="btnWide btnPrimary">開始</button></div>
+        const groupTitle =
+          g === "LEVEL1" ? "LEVEL1（基本）" :
+          g === "LEVEL2" ? "LEVEL2（ラム）" :
+          g === "LEVEL3" ? "LEVEL3（当て物）" : g;
+
+        const groupDesc =
+          g === "LEVEL1" ? "最大高さ（175/210）と調整値（adjust）の基礎。" :
+          g === "LEVEL2" ? "ラムで 最大高さ が変化。セット固定巡回。" :
+          g === "LEVEL3" ? "当て物（5/10mm）＋プレス1回目/2回目。press2はtarget置換。" : "";
+
+        const groupCard = document.createElement("div");
+        groupCard.className = "groupCard";
+        groupCard.innerHTML = `
+          <div class="groupHead">
+            <div>
+              <div class="k">${groupTitle}</div>
+              <div class="d">${groupDesc}</div>
+            </div>
+            <button class="btnIcon groupToggle" aria-label="toggle">＋</button>
+          </div>
+          <div class="groupBody"></div>
         `;
 
-        card.querySelector("button").addEventListener("click", () => startLevel(lv.key));
-        levelList.appendChild(card);
+        const body = groupCard.querySelector(".groupBody");
+        const toggleBtn = groupCard.querySelector(".groupToggle");
+        const head = groupCard.querySelector(".groupHead");
+
+        function toggle() {
+          const on = body.classList.toggle("on");
+          toggleBtn.textContent = on ? "－" : "＋";
+        }
+
+        head.addEventListener("click", () => toggle());
+        toggleBtn.addEventListener("click", (e) => { e.stopPropagation(); toggle(); });
+
+        for (const lv of arr) {
+          const baseText =
+            (lv.pmaxMode === "CHOICE")  ? "最大高さ（base_pMAX）：175/210 選択" :
+            (lv.pmaxMode === "FIX_175") ? "最大高さ（base_pMAX）：175 固定" :
+            (lv.pmaxMode === "FIX_210") ? "最大高さ（base_pMAX）：210 固定" : "最大高さ（base_pMAX）：-";
+
+          const ramTxt = isRamLevel(lv.key) ? " / ラム：セット固定(3問)" : " / ラム：なし";
+          const ateTxt = isAteLevel(lv.key) ? " / 当て物：セット固定(4問)" : "";
+
+          const stage = document.createElement("div");
+          stage.className = "stageItem";
+          stage.innerHTML = `
+            <div class="stageTop">
+              <div>
+                <div class="stageName">${lv.label}</div>
+                <div class="stageMeta">${baseText}${ramTxt}${ateTxt} / target帯：${lv.designRange[0]}〜${lv.designRange[1]}</div>
+              </div>
+              <button class="btnIcon btnPrimary" aria-label="start ${lv.key}">▶</button>
+            </div>
+          `;
+          stage.querySelector("button").addEventListener("click", () => startLevel(lv.key));
+          body.appendChild(stage);
+        }
+
+        levelList.appendChild(groupCard);
       }
+
+      // 4) LEVEL4
+      const l4 = document.createElement("div");
+      l4.className = "stageItem";
+      l4.innerHTML = `
+        <div class="stageTop">
+          <div>
+            <div class="stageName">LEVEL4（総合）</div>
+            <div class="stageMeta">毎問ランダム（基本多め）。ラム＋当て物は同時に出さない。</div>
+          </div>
+          <button class="btnIcon btnPrimary" id="goL4" aria-label="start level4">▶</button>
+        </div>
+      `;
+      levelList.appendChild(l4);
+      l4.querySelector("#goL4").addEventListener("click", () => startLevel("LEVEL4"));
     }
 
     // =========================================================
@@ -607,7 +742,6 @@
       l0Unlocked = false;
       btnL0Next.disabled = true;
       btnL0Done.classList.add("hide");
-
       l0SetFeedback(null, "");
 
       l0Title.textContent = step?.title ?? "";
@@ -647,8 +781,6 @@
         });
         l0Choices.appendChild(b);
       });
-
-      btnL0Next.textContent = "次へ";
     }
 
     function startLevel0() {
@@ -658,53 +790,36 @@
     }
 
     btnL0Back.addEventListener("click", () => showTitle());
-
-    btnL0Prev.addEventListener("click", () => {
-      if (l0Index <= 0) return;
-      l0Index -= 1;
-      renderLevel0();
-    });
-
+    btnL0Prev.addEventListener("click", () => { if (l0Index > 0) { l0Index -= 1; renderLevel0(); } });
     btnL0Next.addEventListener("click", () => {
       if (!l0Unlocked) return;
       const steps = MACHINE_CONFIG.level0_steps || [];
-      if (l0Index < steps.length - 1) {
-        l0Index += 1;
-        renderLevel0();
-      }
+      if (l0Index < steps.length - 1) { l0Index += 1; renderLevel0(); }
     });
-
     btnL0Done.addEventListener("click", () => showTitle());
 
     // =========================================================
-    // ===== レベル開始（LEVEL1/2/3）=====
+    // ===== レベル開始 =====
     // =========================================================
     function startLevel(levelKey) {
-      const lv = getLevelDef(levelKey);
-
       state.levelKey = levelKey;
 
-      // 共通
       state.streak = 0;
       state.prevTarget = null;
       state.lastJudge = null;
       state.questionNo = 0;
 
-      // LEVEL2（ラム）
       state.ram = 0;
       state.ramSetIndex = 0;
       state.ramSetQCount = 0;
 
-      // LEVEL3（当て物）
       state.ateIndex = 0;
       state.ateSetQCount = 0;
 
-      // base_pMAX
-      if (lv.pmaxMode === "FIX_175") state.basePmax = MACHINE_CONFIG.pmax_screw;
-      if (lv.pmaxMode === "FIX_210") state.basePmax = MACHINE_CONFIG.pmax_kanashiki;
-      if (lv.pmaxMode === "CHOICE")  state.basePmax = MACHINE_CONFIG.pmax_screw;
+      state.level4PickKey = null;
 
-      // ラム初期
+      applyBasePmaxForLevel(levelKey);
+
       if (isRamLevel(levelKey)) {
         state.ram = MACHINE_CONFIG.ram.cycle_mm[state.ramSetIndex];
       }
@@ -718,12 +833,16 @@
     }
 
     function renderTopLabels() {
-      const lv = getLevelDef(state.levelKey);
+      const lvKey = effectiveLevelKey();
+      const lv = getLevelDef(lvKey);
+      const rootLv = getLevelDef(state.levelKey);
 
-      elModeLabel.textContent = lv.label;
+      if (state.levelKey === "LEVEL4" && lv) elModeLabel.textContent = `LEVEL4（総合）/${lv.label}`;
+      else elModeLabel.textContent = lv ? lv.label : (rootLv ? rootLv.label : "-");
+
       elScrewRangeLabel.textContent = `ねじ ${MACHINE_CONFIG.screw_min}〜${MACHINE_CONFIG.screw_max}`;
 
-      if (isRamLevel(state.levelKey)) {
+      if (isRamLevel(lvKey)) {
         elRamLine.style.display = "";
         elRamVal.textContent = ramText(state.ram);
         elPmaxLabel.textContent = `最大高さ±ラム（pMAX'） ${pmaxPrime()}`;
@@ -732,7 +851,7 @@
         elPmaxLabel.textContent = `最大高さ（base_pMAX） ${state.basePmax}`;
       }
 
-      if (!isAteLevel(state.levelKey)) {
+      if (!isAteLevel(lvKey)) {
         elAteLine.classList.add("hide");
         elAteLine.textContent = "";
       }
@@ -775,8 +894,8 @@
     // =========================================================
     // ===== LEVEL2（ラム）：セット進行 =====
     // =========================================================
-    function advanceRamSetIfNeeded() {
-      if (!isRamLevel(state.levelKey)) return;
+    function advanceRamSetIfNeeded(lvKey) {
+      if (!isRamLevel(lvKey)) return;
       if (state.ramSetQCount >= MACHINE_CONFIG.ram.questions_per_set) {
         state.ramSetQCount = 0;
         state.ramSetIndex = (state.ramSetIndex + 1) % MACHINE_CONFIG.ram.cycle_mm.length;
@@ -787,13 +906,13 @@
     // =========================================================
     // ===== LEVEL3（当て物）：セット進行 =====
     // =========================================================
-    function getAteCurrent() {
-      if (!isAteLevel(state.levelKey)) return null;
+    function getAteCurrent(lvKey) {
+      if (!isAteLevel(lvKey)) return null;
       return MACHINE_CONFIG.ate.cycle[state.ateIndex] || null;
     }
 
-    function advanceAteSetIfNeeded() {
-      if (!isAteLevel(state.levelKey)) return;
+    function advanceAteSetIfNeeded(lvKey) {
+      if (!isAteLevel(lvKey)) return;
       if (state.ateSetQCount >= MACHINE_CONFIG.ate.questions_per_set) {
         state.ateSetQCount = 0;
         state.ateIndex = (state.ateIndex + 1) % MACHINE_CONFIG.ate.cycle.length;
@@ -807,8 +926,7 @@
       const lv = getLevelDef(levelKey);
       if (!lv) return null;
 
-      const ate = getAteCurrent();
-      // safety: 当て物が無いなら通常生成にフォールバック
+      const ate = getAteCurrent(levelKey);
       if (!ate) {
         return generateTarget({ levelKey, base_pmax, pmax_prime, ram: 0, prevTarget });
       }
@@ -824,20 +942,18 @@
           pressStage: ate.pressStage
         });
 
-        // ★ここが修正の本体：成立判定にeffective_targetを使う
         const ok = isSolvableTarget({
           levelKey,
           base_pmax,
           pmax_prime,
           target: effectiveTarget
         });
+
         if (ok) candidates.push(t);
       }
 
       if (candidates.length === 0) return null;
-      if (candidates.length === 1) return candidates[0];
 
-      // 同一target連続禁止
       let t = candidates[Math.floor(Math.random() * candidates.length)];
       for (let i = 0; i < 40 && prevTarget != null && t === prevTarget; i++) {
         t = candidates[Math.floor(Math.random() * candidates.length)];
@@ -849,24 +965,32 @@
     // ===== 出題 =====
     // =========================================================
     function nextProblem(isFirst) {
-      // セット進行（次の問題を作る前）
-      advanceRamSetIfNeeded();
-      advanceAteSetIfNeeded();
+      if (state.levelKey === "LEVEL4") {
+        state.level4PickKey = pickLevel4EffectiveKey();
+        applyBasePmaxForLevel(state.level4PickKey);
+      } else {
+        state.level4PickKey = null;
+      }
 
-      const lv = getLevelDef(state.levelKey);
+      const lvKey = effectiveLevelKey();
 
-      // 生成（LEVEL3はeffective_targetで候補化）
+      advanceRamSetIfNeeded(lvKey);
+      advanceAteSetIfNeeded(lvKey);
+
+      renderTopLabels();
+
       let t = null;
-      if (isAteLevel(state.levelKey)) {
+
+      if (isAteLevel(lvKey)) {
         t = generateTarget_Level3_EffectiveFilter({
-          levelKey: state.levelKey,
+          levelKey: lvKey,
           base_pmax: state.basePmax,
           pmax_prime: pmaxPrime(),
           prevTarget: state.prevTarget
         });
       } else {
         t = generateTarget({
-          levelKey: state.levelKey,
+          levelKey: lvKey,
           base_pmax: state.basePmax,
           pmax_prime: pmaxPrime(),
           ram: state.ram,
@@ -877,22 +1001,14 @@
       state.target = t;
       state.prevTarget = t;
 
-      // カウンタ
       state.questionNo += 1;
       elProblemNo.textContent = String(state.questionNo);
       elStreak.textContent = String(state.streak);
-      elLevelNo.textContent = lv.label;
 
-      // 表示
+      elLevelNo.textContent = (state.levelKey === "LEVEL4") ? "LEVEL4（総合）" : (getLevelDef(state.levelKey)?.label ?? "-");
       elTarget.textContent = (t == null) ? "-" : String(t);
-      renderTopLabels();
 
-      // セット内カウント（生成後に増やす）
-      if (isRamLevel(state.levelKey)) state.ramSetQCount += 1;
-      if (isAteLevel(state.levelKey)) state.ateSetQCount += 1;
-
-      // 当て物行（問題ごとに更新）
-      const ate = getAteCurrent();
+      const ate = getAteCurrent(lvKey);
       if (ate && t != null) {
         elAteLine.classList.remove("hide");
         elAteLine.textContent = `当て物：${ate.pad_mm}mm / プレス${ate.pressStage}回目（表示targetは固定）`;
@@ -906,8 +1022,6 @@
         return;
       }
 
-      // 判定前：黒板（答え隠し）
-      // LEVEL3 press2のときは、黒板も (target+pad) 表示にする
       if (ate && ate.pressStage === 2) {
         const pad = ate.pad_mm || 0;
         const line1 = `粗地高さ（target） = ${t}`;
@@ -919,55 +1033,29 @@
         elOut.textContent = bb.text;
       }
 
-      // 初期化
       setScrew(MACHINE_CONFIG.screw_min);
       clearKana();
       state.lastJudge = null;
-    }
 
-    function getKSum() { return pickedKanashiki.reduce((a, b) => a + b, 0); }
+      if (isRamLevel(lvKey)) state.ramSetQCount += 1;
+      if (isAteLevel(lvKey)) state.ateSetQCount += 1;
+    }
 
     // =========================================================
     // ===== 判定 =====
     // =========================================================
-    function buildAteBlackboard({ displayTarget, pmaxP, ate, revealAdjust }) {
-      const pad = ate.pad_mm || 0;
-      const eff = calcEffectiveTargetForAte({ target: displayTarget, pad_mm: pad, pressStage: ate.pressStage });
-      const adjust = pmaxP - eff;
-
-      const line1 = `粗地高さ（target） = ${displayTarget}`;
-
-      if (ate.pressStage === 2) {
-        if (revealAdjust) {
-          const line2 = `調整値（adjust） = ${pmaxP} - (${displayTarget}+${pad}) = ${adjust}`;
-          const line3 = `検算：(${displayTarget}+${pad}) + ${adjust} = ${pmaxP}`;
-          return { text: [line1, line2, line3].join("\n"), adjust, effectiveTarget: eff };
-        } else {
-          const line2 = `調整値（adjust） = ${pmaxP} - (${displayTarget}+${pad}) = ?`;
-          const line3 = `検算：(${displayTarget}+${pad}) + ? = ${pmaxP}`;
-          return { text: [line1, line2, line3].join("\n"), adjust, effectiveTarget: eff };
-        }
-      }
-
-      if (revealAdjust) {
-        const line2 = `調整値（adjust） = ${pmaxP} - ${displayTarget} = ${adjust}`;
-        const line3 = `検算：${displayTarget} + ${adjust} = ${pmaxP}`;
-        return { text: [line1, line2, line3].join("\n"), adjust, effectiveTarget: eff };
-      } else {
-        const line2 = `調整値（adjust） = ${pmaxP} - ${displayTarget} = ?`;
-        const line3 = `検算：${displayTarget} + ? = ${pmaxP}`;
-        return { text: [line1, line2, line3].join("\n"), adjust, effectiveTarget: eff };
-      }
-    }
+    function getKSum() { return pickedKanashiki.reduce((a, b) => a + b, 0); }
 
     function judge() {
       if (state.target == null) return;
+
+      const lvKey = effectiveLevelKey();
 
       const s = Number(elScrew.value);
       const k = getKSum();
       const pmaxP = pmaxPrime();
 
-      const ate = getAteCurrent();
+      const ate = getAteCurrent(lvKey);
       let effectiveTarget = state.target;
       let ateNote = "";
 
@@ -985,7 +1073,7 @@
       }
 
       const r = evalRoutes({
-        levelKey: state.levelKey,
+        levelKey: lvKey,
         base_pmax: state.basePmax,
         pmax_prime: pmaxP,
         target: effectiveTarget,
@@ -996,18 +1084,23 @@
       state.lastJudge = r;
 
       let boardText = "";
-      if (ate) {
-        const bb = buildAteBlackboard({ displayTarget: state.target, pmaxP, ate, revealAdjust: true });
-        boardText = bb.text;
+      if (ate && ate.pressStage === 2) {
+        const pad = ate.pad_mm || 0;
+        const adjust = pmaxP - (state.target + pad);
+        boardText = [
+          `粗地高さ（target） = ${state.target}`,
+          `調整値（adjust） = ${pmaxP} - (${state.target}+${pad}) = ${adjust}`,
+          `検算：(${state.target}+${pad}) + ${adjust} = ${pmaxP}`
+        ].join("\n");
       } else {
         const bb = makeBlackboard({ target: state.target, pmaxPrime: pmaxP, revealAdjust: true });
         boardText = bb.text;
       }
 
+      function mark(x){ return x === "NA" ? "—" : (x === "PASS" ? "Y" : "N"); }
+
       let extra = `\n\n結果: ${r.isCorrect ? "正解" : "不正解"}\n`;
       if (!r.isCorrect) extra += `（調整値（adjust）=${r.adjust}）\n`;
-
-      function mark(x){ return x === "NA" ? "—" : (x === "PASS" ? "Y" : "N"); }
       extra += `check_cal1: ${mark(r.results.cal1)}  check_cal2: ${mark(r.results.cal2)}  check_cal3: ${mark(r.results.cal3)}\n`;
       if (ateNote) extra += `${ateNote}\n`;
 
@@ -1023,7 +1116,8 @@
     // ===== LEVEL1-1：base_pMAX選択（タップで切替）=====
     // =========================================================
     elPmaxLabel.addEventListener("click", () => {
-      const lv = getLevelDef(state.levelKey);
+      const lvKey = effectiveLevelKey();
+      const lv = getLevelDef(lvKey);
       if (!lv || lv.pmaxMode !== "CHOICE") return;
 
       state.basePmax = (state.basePmax === MACHINE_CONFIG.pmax_screw)
@@ -1033,7 +1127,7 @@
       renderTopLabels();
 
       if (state.target != null) {
-        const ate = getAteCurrent();
+        const ate = getAteCurrent(lvKey);
         if (ate && ate.pressStage === 2) {
           const pad = ate.pad_mm || 0;
           const line1 = `粗地高さ（target） = ${state.target}`;
