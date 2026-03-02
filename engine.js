@@ -19,29 +19,20 @@
 // add2 = s - screw_MIN
 //
 // check_cal1:
-//   base=175: (s == adjust) AND (k == F)   ← ズル防止（F前提）
+//   base=175: (s == adjust) AND (k == F)   ← cal1の定義（F推奨判定）
 //   base=210: F + add1 == adjust  <=> k == adjust
 // check_cal2: s + add1 == adjust
 // check_cal3: add2 + k == adjust
 //
-// ルート有効化（現状）
-// - LEVEL1-1: base=175 -> cal1のみ / base=210 -> cal1,2,3（OR）
-// - LEVEL1-2: cal2のみ
-// - LEVEL1-3: cal3のみ
-// - LEVEL2-1: cal1のみ
-// - LEVEL2-2: cal1,2,3（OR）
-// - LEVEL3-1: cal1のみ（当て物/175）
-// - LEVEL3-2: cal1,2,3（当て物/210）
+// ★今回の要件（最重要）
+// ルート有効化を「レベルキー基準」で切り替える（175側）
 //
-// ============================================
-// ===== <LEVEL3用の箱（将来拡張）> =====
-// - 成立ルート表示の強調
-// - 当て物を絡めた「X = target or target+pad」説明
-// ============================================
+// [グループA] 1-1 / 2-1 / 3-1 / (LEVEL4でこれらに該当) : cal1,2,3（OR）
+//   - 表示側(index)で cal1 PASS を「推奨：F条件」として誘導する
 //
-// ============================================
-// ===== <LEVEL4用の箱（将来拡張）> =====
-// - 175/210混在 + ラム混在 + 反復（無制限）
+// [グループB] 1-2 / 1-3 / 2-2 / 3-2 / (LEVEL4でこれらに該当) : cal2,3（OR）
+//
+// ※210側は新人が使わない前提のため、従来互換（壊さない）で維持
 // ============================================
 
 function randomInt(min, max) {
@@ -121,20 +112,51 @@ const KSUMS = buildKanashikiPossibleSums();
 // ===== ルート有効化 =====
 // =========================
 function getActiveRoutes(levelKey, basePmax) {
-  if (levelKey === "LEVEL1-1") {
-    if (basePmax === MACHINE_CONFIG.pmax_screw) return ["cal1"];
-    return ["cal1", "cal2", "cal3"];
+  const P175 = MACHINE_CONFIG.pmax_screw;     // 175側
+  const P210 = MACHINE_CONFIG.pmax_kanashiki; // 210側（互換維持）
+
+  // -------------------------
+  // 175側：あなたの要件どおり
+  // -------------------------
+  if (basePmax === P175) {
+    // グループA：cal1,2,3 OR（F誘導は表示側で行う）
+    if (levelKey === "LEVEL1-1" || levelKey === "LEVEL2-1" || levelKey === "LEVEL3-1") {
+      return ["cal1", "cal2", "cal3"];
+    }
+
+    // グループB：cal2,3 OR（cal1無効）
+    if (
+      levelKey === "LEVEL1-2" ||
+      levelKey === "LEVEL1-3" ||
+      levelKey === "LEVEL2-2" ||
+      levelKey === "LEVEL3-2"
+    ) {
+      return ["cal2", "cal3"];
+    }
+
+    // それ以外（LEVEL0など）は安全側
+    return ["cal1"];
   }
-  if (levelKey === "LEVEL1-2") return ["cal2"];
-  if (levelKey === "LEVEL1-3") return ["cal3"];
 
-  if (levelKey === "LEVEL2-1") return ["cal1"];
-  if (levelKey === "LEVEL2-2") return ["cal1", "cal2", "cal3"];
+  // -------------------------
+  // 210側：従来互換（壊さない）
+  // -------------------------
+  if (basePmax === P210) {
+    if (levelKey === "LEVEL1-1") return ["cal1", "cal2", "cal3"];
+    if (levelKey === "LEVEL1-2") return ["cal2"];
+    if (levelKey === "LEVEL1-3") return ["cal3"];
 
-  // ---- LEVEL3（当て物） ----
-  if (levelKey === "LEVEL3-1") return ["cal1"];
-  if (levelKey === "LEVEL3-2") return ["cal1", "cal2", "cal3"];
+    if (levelKey === "LEVEL2-1") return ["cal1"];
+    if (levelKey === "LEVEL2-2") return ["cal1", "cal2", "cal3"];
 
+    // ---- LEVEL3（当て物） ----
+    if (levelKey === "LEVEL3-1") return ["cal1"];
+    if (levelKey === "LEVEL3-2") return ["cal1", "cal2", "cal3"];
+
+    return ["cal1"];
+  }
+
+  // 想定外は安全側
   return ["cal1"];
 }
 
@@ -158,7 +180,7 @@ function evalRoutes({ levelKey, base_pmax, pmax_prime, target, s_value, k_value 
   // cal1
   if (!isInactive("cal1")) {
     if (base_pmax === MACHINE_CONFIG.pmax_screw) {
-      // 175側：F前提（k==F）を追加してズル防止
+      // 175側：cal1の定義は「F前提」を残す（表示側で推奨誘導に使う）
       results.cal1 = (s_value === adjust && k_value === F) ? "PASS" : "FAIL";
     } else {
       results.cal1 = ((F + add1) === adjust) ? "PASS" : "FAIL"; // <=> k==adjust

@@ -141,9 +141,9 @@
     /* ★ここが今回の修正（当て物行を「ねじ値」と同格に） */
     #ateLine{
       color: var(--ink);
-      font-size: 16px;      /* ねじ値ラベルと同等の見え方 */
-      font-weight: 900;    /* 太字 */
-      line-height: 1.35;   /* 改行や文章構造は変えない */
+      font-size: 16px;
+      font-weight: 900;
+      line-height: 1.35;
     }
 
     .calcMask{ display:none; position: fixed; inset: 0; background: rgba(0,0,0,0.25); z-index: 9998; }
@@ -218,6 +218,48 @@
     .stageTop{ display:flex; align-items:flex-start; justify-content:space-between; gap:10px; }
     .stageName{ font-weight:900; }
     .stageMeta{ color:var(--muted); font-size:12px; margin-top:6px; line-height:1.4; }
+
+    /* ===== ガイド（オーバーレイ） ===== */
+    #guideMask{
+      display:none;
+      position:fixed;
+      inset:0;
+      background:rgba(0,0,0,0.60);
+      z-index: 20000;
+    }
+    #guideBox{
+      display:none;
+      position:fixed;
+      border: 3px solid var(--accent);
+      border-radius: 14px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.35);
+      z-index: 20001;
+      pointer-events:none;
+    }
+    #guideText{
+      display:none;
+      position:fixed;
+      z-index: 20002;
+      background:#fff;
+      border: 1px solid #e6e6e6;
+      border-radius: 14px;
+      padding: 10px 12px;
+      font-weight: 900;
+      max-width: min(320px, calc(100vw - 24px));
+      box-shadow: 0 10px 30px rgba(0,0,0,0.25);
+      line-height: 1.4;
+    }
+    #guideHint{
+      display:none;
+      position:fixed;
+      z-index: 20003;
+      color:#fff;
+      font-weight: 900;
+      font-size: 13px;
+      left: 12px;
+      bottom: 12px;
+      opacity: 0.9;
+    }
   </style>
 </head>
 
@@ -234,6 +276,7 @@
           <span class="badge">PWA</span>
         </div>
         <div class="topBarRight">
+          <button id="btnHelp0" class="btnIcon" title="ヘルプ">?</button>
           <button id="btnCalcOpen0" class="btnIcon" title="電卓">🧮</button>
         </div>
       </div>
@@ -255,6 +298,7 @@
           <span class="badge" id="l0ProgressBadge">-</span>
         </div>
         <div class="topBarRight">
+          <button id="btnHelpL0" class="btnIcon" title="ヘルプ">?</button>
           <button id="btnL0Back" class="btnIcon" title="戻る">⌂</button>
         </div>
       </div>
@@ -299,19 +343,20 @@
           <span class="badge" id="screwRangeLabel">ねじ -</span>
         </div>
         <div class="topBarRight">
+          <button id="btnHelp1" class="btnIcon" title="ヘルプ">?</button>
           <button id="btnCalcOpen1" class="btnIcon" title="電卓">🧮</button>
           <button id="btnBack" class="btnIcon" title="戻る">⌂</button>
         </div>
       </div>
 
-      <div class="row">
+      <div class="row" id="playHeaderInfo">
         <div style="display:flex; justify-content:space-between; gap:10px; flex-wrap:wrap;">
           <div>レベル: <b id="levelNo">-</b></div>
           <div>問題: <b id="problemNo">-</b></div>
           <div>連続正解: <b id="streak">0</b></div>
         </div>
 
-        <div class="targetBox">
+        <div class="targetBox" id="guideTargetBox">
           <span class="targetLabel">粗地高さ（target）</span>
           <span class="targetVal" id="target">-</span>
           <span class="targetLabel">mm</span>
@@ -370,24 +415,70 @@
   </div>
 
   <!-- ============================= -->
+  <!-- ==== ガイド（オーバーレイ） ==== -->
+  <!-- ============================= -->
+  <div id="guideMask"></div>
+  <div id="guideBox"></div>
+  <div id="guideText"></div>
+  <div id="guideHint">タップで次へ（最後で終了）</div>
+
+  <!-- ============================= -->
   <!-- ==== 電卓UI（共通） ==== -->
   <!-- ============================= -->
   <div id="calcMask" class="calcMask"></div>
+
   <div id="calcPanel" class="calcPanel">
     <div style="display:flex; align-items:center; justify-content:space-between; gap:10px;">
       <div class="calcTitle">電卓（0〜250 / ＋・−）</div>
       <button id="btnCalcClose" class="btnIcon">×</button>
     </div>
 
-    <div class="calcRow">
-      <input id="calcA" inputmode="numeric" pattern="[0-9]*" placeholder="A（0〜250）">
-      <input id="calcB" inputmode="numeric" pattern="[0-9]*" placeholder="B（0〜250）">
-    </div>
+    <!-- 表示 -->
+    <div id="calcDisp"
+      style="
+        margin-top:10px;
+        border:1px solid #e6e6e6;
+        background:#fafafa;
+        border-radius: 12px;
+        padding: 12px;
+        font-weight: 900;
+        font-size: 20px;
+        text-align: right;
+        user-select: none;
+      ">0</div>
 
-    <div class="calcOps">
-      <button id="calcAdd" class="btnWide btnPrimary">A + B</button>
-      <button id="calcSub" class="btnWide">A - B</button>
-      <button id="calcClr" class="btnWide">クリア</button>
+    <!-- キー -->
+    <div id="calcKeys"
+      style="
+        margin-top:10px;
+        display:grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap:10px;
+      ">
+
+      <!-- 1行目 -->
+      <button class="btnWide" data-key="7">7</button>
+      <button class="btnWide" data-key="8">8</button>
+      <button class="btnWide" data-key="9">9</button>
+      <button class="btnWide btnPrimary" data-key="+"
+        style="grid-row: 1 / 3; height: 100%;">＋</button>
+
+      <!-- 2行目 -->
+      <button class="btnWide" data-key="4">4</button>
+      <button class="btnWide" data-key="5">5</button>
+      <button class="btnWide" data-key="6">6</button>
+
+      <!-- 3行目 -->
+      <button class="btnWide" data-key="1">1</button>
+      <button class="btnWide" data-key="2">2</button>
+      <button class="btnWide" data-key="3">3</button>
+      <button class="btnWide" data-key="-"
+        style="grid-row: 3 / 5; height: 100%;">－</button>
+
+      <!-- 4行目（C 0 =） -->
+      <button class="btnWide" data-key="C">C</button>
+      <button class="btnWide" data-key="0">0</button>
+      <button class="btnWide btnPrimary" data-key="=">=</button>
     </div>
 
     <div class="calcResult" id="calcRes">結果: -</div>
@@ -498,12 +589,22 @@
     const btnCalcClose = document.getElementById("btnCalcClose");
     const btnCalcOpen0 = document.getElementById("btnCalcOpen0");
     const btnCalcOpen1 = document.getElementById("btnCalcOpen1");
-    const calcA = document.getElementById("calcA");
-    const calcB = document.getElementById("calcB");
-    const calcAdd = document.getElementById("calcAdd");
-    const calcSub = document.getElementById("calcSub");
-    const calcClr = document.getElementById("calcClr");
+
+    const calcDisp = document.getElementById("calcDisp");
+    const calcKeys = document.getElementById("calcKeys");
     const calcRes = document.getElementById("calcRes");
+
+    // =========================================================
+    // ===== DOM参照（ヘルプ）=====
+    // =========================================================
+    const btnHelp0 = document.getElementById("btnHelp0");
+    const btnHelp1 = document.getElementById("btnHelp1");
+    const btnHelpL0 = document.getElementById("btnHelpL0");
+
+    const guideMask = document.getElementById("guideMask");
+    const guideBox = document.getElementById("guideBox");
+    const guideText = document.getElementById("guideText");
+    const guideHint = document.getElementById("guideHint");
 
     // =========================================================
     // ===== 画面切替 =====
@@ -565,6 +666,153 @@
       pickedKanashiki = [];
       updateKanaUI();
     }
+
+    // =========================================================
+    // ===== ガイド（ヘルプ）=====
+    // =========================================================
+    let guideSteps = [];
+    let guideIndex = 0;
+    let guideActive = false;
+
+    function isVisible(el){
+      if (!el) return false;
+      const st = getComputedStyle(el);
+      if (st.display === "none" || st.visibility === "hidden" || st.opacity === "0") return false;
+      const r = el.getBoundingClientRect();
+      return (r.width > 0 && r.height > 0);
+    }
+
+    function buildGuideStepsForTitle(){
+      // タイトルは「電卓」「▶」「＋」が最低限（赤枠の意図）
+      const steps = [
+        { id: "btnCalcOpen0", text: "電卓を開きます" }
+      ];
+
+      // LEVEL0 / LEVEL4 の ▶ は renderLevelList() 後に存在する
+      if (document.getElementById("goL0")) steps.push({ id: "goL0", text: "▶：すぐ開始" });
+
+      // 展開（＋）は最初のグループに付く（複数あるが最上段を狙う）
+      const firstToggle = document.querySelector(".groupToggle");
+      if (firstToggle) {
+        firstToggle.id = firstToggle.id || "guideFirstExpand";
+        steps.push({ id: firstToggle.id, text: "＋：展開します" });
+      }
+
+      return steps;
+    }
+
+    function buildGuideStepsForPlay(){
+      const steps = [
+        { id: "btnBack", text: "ホーム（タイトルへ戻る）" },
+        { id: "pmaxLabel", text: "最大高さ（base_pMAX）" },
+        { id: "guideTargetBox", text: "粗地高さ（target）" }
+      ];
+
+      // ラム/当て物は出ているときだけ見せる
+      if (isVisible(elRamLine)) steps.push({ id: "ramLine", text: "ラム情報（pMAX'が変化）" });
+      if (isVisible(elAteLine)) steps.push({ id: "ateLine", text: "当て物（計算に関係）" });
+
+      steps.push(
+        { id: "screwArea", text: "ねじ値（スライドで調整）" },
+        { id: "kanashikiArea", text: "金敷（最大3枚・重複禁止）" },
+        { id: "check", text: "判定（正誤を確認）" },
+        { id: "next", text: "次へ（次の問題）" },
+        { id: "out", text: "黒板（式を確認）" }
+      );
+
+      return steps;
+    }
+
+    function buildGuideStepsForLevel0(){
+      const steps = [
+        { id: "btnL0Back", text: "ホーム（タイトルへ戻る）" },
+        { id: "l0Title", text: "このページのテーマ" },
+        { id: "l0Choices", text: "2択で確認" },
+        { id: "btnL0Next", text: "次へ（正解で解放）" }
+      ];
+      return steps.filter(s => document.getElementById(s.id));
+    }
+
+    function startGuide(){
+      // 画面に応じてステップを作る
+      if (!screenTitle.classList.contains("hide")) guideSteps = buildGuideStepsForTitle();
+      else if (!screenPlay.classList.contains("hide")) guideSteps = buildGuideStepsForPlay();
+      else if (!screenLevel0.classList.contains("hide")) guideSteps = buildGuideStepsForLevel0();
+      else guideSteps = [];
+
+      // 存在＆可視のものだけ残す
+      guideSteps = guideSteps.filter(s => isVisible(document.getElementById(s.id)));
+
+      if (guideSteps.length === 0) return;
+
+      guideIndex = 0;
+      guideActive = true;
+      guideMask.style.display = "block";
+      guideBox.style.display = "block";
+      guideText.style.display = "block";
+      guideHint.style.display = "block";
+
+      renderGuide();
+    }
+
+    function endGuide(){
+      guideActive = false;
+      guideMask.style.display = "none";
+      guideBox.style.display = "none";
+      guideText.style.display = "none";
+      guideHint.style.display = "none";
+    }
+
+    function renderGuide(){
+      if (!guideActive) return;
+      const step = guideSteps[guideIndex];
+      const el = document.getElementById(step.id);
+      if (!isVisible(el)) return;
+
+      const r = el.getBoundingClientRect();
+
+      // 枠
+      const pad = 6;
+      guideBox.style.left = Math.max(6, r.left - pad) + "px";
+      guideBox.style.top = Math.max(6, r.top - pad) + "px";
+      guideBox.style.width = Math.max(0, r.width + pad * 2) + "px";
+      guideBox.style.height = Math.max(0, r.height + pad * 2) + "px";
+
+      // テキスト（基本は下。入らない場合は上）
+      guideText.textContent = step.text;
+
+      const margin = 10;
+      let tx = r.left;
+      let ty = r.bottom + margin;
+
+      // 右はみ出し補正
+      const maxX = window.innerWidth - 12;
+      const approxW = Math.min(320, window.innerWidth - 24);
+      if (tx + approxW > maxX) tx = maxX - approxW;
+
+      // 下に入らないなら上へ
+      const approxH = 54;
+      if (ty + approxH > window.innerHeight - 12) {
+        ty = Math.max(12, r.top - margin - approxH);
+      }
+
+      guideText.style.left = Math.max(12, tx) + "px";
+      guideText.style.top = Math.max(12, ty) + "px";
+    }
+
+    guideMask.addEventListener("click", () => {
+      if (!guideActive) return;
+      guideIndex += 1;
+      if (guideIndex >= guideSteps.length) endGuide();
+      else renderGuide();
+    });
+
+    window.addEventListener("resize", () => renderGuide());
+    window.addEventListener("scroll", () => renderGuide(), { passive: true });
+
+    btnHelp0.addEventListener("click", startGuide);
+    btnHelp1.addEventListener("click", startGuide);
+    btnHelpL0.addEventListener("click", startGuide);
 
     // =========================================================
     // ===== LEVEL4：抽選（教育寄り）=====
@@ -967,6 +1215,13 @@
     function nextProblem(isFirst) {
       if (state.levelKey === "LEVEL4") {
         state.level4PickKey = pickLevel4EffectiveKey();
+
+        // ===== LEVEL4: ラム問題ならramをセットする =====
+        if (isRamLevel(state.level4PickKey)) {
+          state.ram = MACHINE_CONFIG.ram.cycle_mm[state.ramSetIndex] || 0;
+        } else {
+          state.ram = 0;
+        }
         applyBasePmaxForLevel(state.level4PickKey);
       } else {
         state.level4PickKey = null;
@@ -976,6 +1231,11 @@
 
       advanceRamSetIfNeeded(lvKey);
       advanceAteSetIfNeeded(lvKey);
+
+      // ===== LEVEL4のみ：非ラム問題ならramを0に戻す =====
+      if (state.levelKey === "LEVEL4" && !isRamLevel(lvKey)) {
+        state.ram = 0;
+      }
 
       renderTopLabels();
 
@@ -1099,10 +1359,59 @@
 
       function mark(x){ return x === "NA" ? "—" : (x === "PASS" ? "Y" : "N"); }
 
-      let extra = `\n\n結果: ${r.isCorrect ? "正解" : "不正解"}\n`;
-      if (!r.isCorrect) extra += `（調整値（adjust）=${r.adjust}）\n`;
+      // ===== 判定表示（新仕様対応）=====
+      let resultLabel = "不正解";
+      let guideNote = "";
+
+      // グループ判定（175側のみ意味を持つ）
+      const groupA =
+        state.basePmax === MACHINE_CONFIG.pmax_screw &&
+       (lvKey === "LEVEL1-1" ||
+        lvKey === "LEVEL2-1" ||
+        lvKey === "LEVEL3-1");
+
+      const groupB =
+        state.basePmax === MACHINE_CONFIG.pmax_screw &&
+       (lvKey === "LEVEL1-2" ||
+        lvKey === "LEVEL1-3" ||
+        lvKey === "LEVEL2-2" ||
+        lvKey === "LEVEL3-2");
+
+      if (r.isCorrect) {
+
+        if (groupA) {
+          if (r.results.cal1 === "PASS") {
+            resultLabel = "◎ 正解（推奨：F条件）";
+          } else {
+            resultLabel = "○ 正解（別解）";
+            guideNote = "※基本はF条件で考える";
+          }
+        }
+
+        else if (groupB) {
+          resultLabel = "○ 正解";
+        }
+
+        else {
+          resultLabel = "○ 正解";
+        }
+      }
+
+      let extra = `\n\n結果: ${resultLabel}\n`;
+
+      if (!r.isCorrect) {
+        extra += `（調整値（adjust）=${r.adjust}）\n`;
+      }
+
+      if (guideNote) {
+        extra += guideNote + "\n";
+      }
+
       extra += `check_cal1: ${mark(r.results.cal1)}  check_cal2: ${mark(r.results.cal2)}  check_cal3: ${mark(r.results.cal3)}\n`;
-      if (ateNote) extra += `${ateNote}\n`;
+
+      if (ateNote) {
+        extra += `${ateNote}\n`;
+      }
 
       elOut.textContent = boardText + extra;
 
@@ -1110,6 +1419,9 @@
       else state.streak = 0;
 
       elStreak.textContent = String(state.streak);
+
+      // ガイド表示中に判定すると枠がズレやすいので再描画
+      renderGuide();
     }
 
     // =========================================================
@@ -1139,6 +1451,8 @@
           elOut.textContent = bb.text;
         }
       }
+
+      renderGuide();
     });
 
     // =========================================================
@@ -1149,21 +1463,135 @@
     btnBack.addEventListener("click", () => showTitle());
 
     // =========================================================
-    // ===== 電卓（簡易）=====
+    // ===== 電卓（テンキー）=====
     // =========================================================
-    function openCalc() { calcMask.style.display = "block"; calcPanel.style.display = "block"; calcA.focus(); }
-    function closeCalc() { calcMask.style.display = "none"; calcPanel.style.display = "none"; }
-    function clip250(n) { if (!Number.isFinite(n)) return 0; n = Math.trunc(n); if (n < 0) n = 0; if (n > 250) n = 250; return n; }
-    function readAB() { const a = clip250(Number(calcA.value)); const b = clip250(Number(calcB.value)); calcA.value = String(a); calcB.value = String(b); return { a, b }; }
+    function openCalc() {
+      calcMask.style.display = "block";
+      calcPanel.style.display = "block";
+    }
+    function closeCalc() {
+      calcMask.style.display = "none";
+      calcPanel.style.display = "none";
+    }
+
+    function clip250(n) {
+      if (!Number.isFinite(n)) return 0;
+      n = Math.trunc(n);
+      if (n < 0) n = 0;
+      if (n > 250) n = 250;
+      return n;
+    }
+
+    let entry = "";
+    let stored = null;
+    let op = null;
+
+    function currentValue() {
+      if (entry !== "") return Number(entry);
+      if (stored != null) return stored;
+      return 0;
+    }
+
+    function renderCalc() {
+      const v = currentValue();
+      calcDisp.textContent = String(clip250(v));
+    }
+
+    function clearAll() {
+      entry = "";
+      stored = null;
+      op = null;
+      calcRes.textContent = "結果: -";
+      renderCalc();
+    }
+
+    function pushDigit(d) {
+      if (entry === "0") entry = "";
+      if (entry.length >= 3) return;
+
+      entry += d;
+
+      const v = clip250(Number(entry));
+      entry = String(v);
+      renderCalc();
+    }
+
+    function setOp(nextOp) {
+      if (entry !== "") {
+        const v = clip250(Number(entry));
+        if (stored == null) {
+          stored = v;
+        } else if (op != null) {
+          stored = clip250(op === "+" ? (stored + v) : (stored - v));
+        }
+        entry = "";
+      }
+      op = nextOp;
+      renderCalc();
+    }
+
+    function doEqual() {
+      if (op == null) {
+        const v = clip250(currentValue());
+        entry = String(v);
+        stored = null;
+        op = null;
+        calcRes.textContent = `結果: ${v}`;
+        renderCalc();
+        return;
+      }
+
+      if (entry === "") {
+        renderCalc();
+        return;
+      }
+
+      const rhs = clip250(Number(entry));
+      const lhs = (stored == null) ? 0 : stored;
+      const result = clip250(op === "+" ? (lhs + rhs) : (lhs - rhs));
+
+      entry = String(result);
+      stored = null;
+      op = null;
+
+      calcRes.textContent = `結果: ${result}`;
+      renderCalc();
+    }
 
     btnCalcOpen0.addEventListener("click", openCalc);
     btnCalcOpen1.addEventListener("click", openCalc);
     btnCalcClose.addEventListener("click", closeCalc);
     calcMask.addEventListener("click", closeCalc);
 
-    calcAdd.addEventListener("click", () => { const { a, b } = readAB(); calcRes.textContent = `結果: ${a + b}`; });
-    calcSub.addEventListener("click", () => { const { a, b } = readAB(); calcRes.textContent = `結果: ${a - b}`; });
-    calcClr.addEventListener("click", () => { calcA.value = ""; calcB.value = ""; calcRes.textContent = "結果: -"; calcA.focus(); });
+    calcKeys.addEventListener("click", (e) => {
+      const btn = e.target.closest("button");
+      if (!btn) return;
+      const key = btn.dataset.key;
+      if (!key) return;
+
+      if (key >= "0" && key <= "9") {
+        pushDigit(key);
+        return;
+      }
+      if (key === "C") {
+        clearAll();
+        return;
+      }
+      if (key === "+") {
+        setOp("+");
+        return;
+      }
+      if (key === "-") {
+        setOp("-");
+        return;
+      }
+      if (key === "=") {
+        doEqual();
+        return;
+      }
+    });
+
+    clearAll();
 
     // =========================================================
     // ===== 起動 =====
