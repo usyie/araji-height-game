@@ -1,0 +1,461 @@
+      :root{
+      --pad: 14px;
+      --cardW: 420px;
+      --border: #d0d0d0;
+      --bg: #ffffff;
+      --soft: #f6f6f6;
+      --ink: #111;
+      --muted: #666;
+      --accent: #1e88e5;
+      --ok:#0a7a3a;
+      --ng:#c62828;
+    }
+
+    html, body { margin:0; padding:0; background: var(--bg); color: var(--ink); font-family: system-ui, -apple-system, "Segoe UI", sans-serif; }
+    body { padding: var(--pad); }
+
+    .wrap { max-width: var(--cardW); margin: 0 auto; }
+    .card { border:1px solid var(--border); border-radius: 14px; padding: 14px; background: #fff; }
+    .row { margin-top: 12px; }
+    .row.tight { margin-top: 8px; }
+
+    .badge { display:inline-block; padding: 2px 10px; border:1px solid #999; border-radius: 999px; font-size: 12px; color:#333; background:#fff; }
+
+    pre { background: var(--soft); padding: 12px; border-radius: 12px; border: 1px solid #e6e6e6; white-space: pre-wrap; margin: 0; line-height: 1.4; }
+
+    .topBar{ display:flex; align-items:center; justify-content:space-between; gap: 10px; }
+    .topBarLeft { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+    .topBarRight { display:flex; align-items:center; gap:8px; }
+
+    button{
+      font: inherit;
+      border: 1px solid var(--border);
+      background: #fff;
+      border-radius: 12px;
+      padding: 10px 12px;
+      cursor: pointer;
+      touch-action: manipulation;
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+    button:active { background:#f0f7ff; border-color:#bcdcff; }
+    button:disabled { opacity: 0.5; cursor: default; }
+
+    .btnPrimary{ border-color:#bcdcff; }
+    .btnPrimary:active{ background:#eaf4ff; }
+
+    .btnIcon{ width: 44px; height: 44px; display:grid; place-items:center; border-radius: 14px; font-weight: 700; }
+    .btnWide{ width: 100%; }
+
+    .title{ font-size: 20px; font-weight: 800; margin: 0 0 10px 0; }
+    .levelList{ display:flex; flex-direction:column; gap:10px; }
+
+    .targetBox{ margin-top: 8px; padding: 10px 12px; border-radius: 14px; border:1px solid #ffd1d1; background: #fff4f4; }
+    .targetLabel{ color:#c62828; font-weight: 800; }
+    .targetVal{ font-size: 30px; font-weight: 900; color:#c62828; margin-left: 8px; }
+
+    .screwRow{ display:flex; align-items:center; gap: 10px; }
+    .screwMeta{ display:flex; align-items:baseline; gap:8px; flex-wrap:wrap; }
+    .screwMeta .rangeHint{ color: var(--muted); font-size: 12px; }
+
+    .stepBtn{ min-width: 56px; min-height: 56px; font-weight: 900; font-size: 18px; border-radius: 14px; }
+
+    input[type="range"]{
+      appearance: none;
+      -webkit-appearance: none;
+      width: 100%;
+      height: 12px;
+      border-radius: 8px;
+      outline: none;
+      border: 1px solid #e2e2e2;
+      background: #ddd;
+      background-image: repeating-linear-gradient(
+        to right,
+        rgba(0,0,0,0.08),
+        rgba(0,0,0,0.08) 1px,
+        transparent 1px,
+        transparent 10%
+      );
+      touch-action: pan-x;
+    }
+    input[type="range"]::-webkit-slider-thumb{
+      appearance: none;
+      -webkit-appearance: none;
+      width: 28px; height: 28px;
+      border-radius: 50%;
+      background: #fff;
+      border: 3px solid var(--accent);
+      box-shadow: 0 3px 7px rgba(0,0,0,0.25);
+      cursor: pointer;
+      margin-top: -9px;
+    }
+    input[type="range"]::-webkit-slider-thumb:active{
+      background: #e3f2fd;
+      box-shadow: 0 0 0 6px rgba(30,136,229,0.15);
+    }
+    input[type="range"]::-moz-range-thumb{
+      width: 28px; height: 28px;
+      border-radius: 50%;
+      background: #fff;
+      border: 3px solid var(--accent);
+      box-shadow: 0 3px 7px rgba(0,0,0,0.25);
+    }
+
+    .valChip{
+      display:inline-block;
+      min-width: 46px;
+      text-align:center;
+      padding: 6px 10px;
+      border-radius: 999px;
+      border: 1px solid #cfe5ff;
+      background:#f3f9ff;
+      font-weight: 900;
+    }
+
+    .kanaGrid{ display:flex; flex-wrap:wrap; gap: 6px; margin-top: 8px; }
+    .kanaBtn{ padding: 10px 12px; border-radius: 12px; min-width: 56px; min-height: 48px; font-weight: 800; }
+    .kanaBtn.on{ border-color: var(--accent); background:#eaf4ff; }
+
+    .ramLine{
+      display:none !important;
+      align-items:center; gap:10px; flex-wrap:wrap;
+      color: var(--muted); font-size: 13px;
+    }
+    .ramVal{
+      font-weight: 900; color:#333;
+      border:1px solid #e2e2e2; background:#fafafa;
+      padding: 4px 10px; border-radius: 999px;
+    }
+
+    .noteLine{ margin-top: 8px; color: var(--muted); font-size: 12px; line-height: 1.35; }
+
+    /* ★ここが今回の修正（当て物行を「ねじ値」と同格に） */
+    #ateLine{
+      display:none !important;
+      color: var(--ink);
+      font-size: 16px;
+      font-weight: 900;
+      line-height: 1.35;
+    }
+
+    #guideTargetBox{
+      display:none;
+    }
+
+    .boardStage{
+      position: relative;
+      aspect-ratio: 760 / 805;
+      width: 100%;
+      overflow: hidden;
+      border-radius: 12px;
+      border: 1px solid #d8d8d8;
+      background:
+        linear-gradient(90deg, rgba(255,255,255,0.08) 1px, transparent 1px) 0 0 / 20% 100%,
+        linear-gradient(0deg, rgba(255,255,255,0.07) 1px, transparent 1px) 0 0 / 100% 25%,
+        #2f4037;
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,0.16);
+    }
+    .boardStage::before{
+      content:"";
+      position:absolute;
+      left:27%;
+      top:50.5%;
+      width:46%;
+      height:2px;
+      background:rgba(255,255,255,0.86);
+      box-shadow: 0 1px 2px rgba(0,0,0,0.25);
+    }
+    .boardStage::after{
+      content:"";
+      position:absolute;
+      left:0;
+      right:0;
+      bottom:0;
+      height: 2px;
+      background: rgba(255,255,255,0.62);
+    }
+    .boardRamText{
+      position:absolute;
+      right: 23%;
+      top: 6%;
+      color:#fff;
+      font-family: "Comic Sans MS", "Yu Gothic", system-ui, sans-serif;
+      font-size: clamp(24px, 8vw, 42px);
+      font-weight: 700;
+      text-shadow:
+        0 1px 0 rgba(255,255,255,0.35),
+        0 2px 3px rgba(0,0,0,0.45);
+      pointer-events:none;
+    }
+
+    .boardTarget{
+      position:absolute;
+      left: 6%;
+      top: 5%;
+      min-width: 46%;
+      height: 19%;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      border-radius: 14px;
+      color:#fff;
+      background: rgba(73,88,78,0.86);
+      text-shadow:
+        0 1px 0 rgba(255,255,255,0.5),
+        0 0 4px rgba(255,255,255,0.35);
+      font-family: "Comic Sans MS", "Yu Gothic", system-ui, sans-serif;
+      font-size: clamp(52px, 17vw, 92px);
+      font-weight: 500;
+      line-height: 1;
+    }
+
+    .boardInputBox,
+    .boardInfoBox{
+      position:absolute;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      padding: 0;
+      border: 0;
+      border-radius: 18px;
+      background: rgba(92,110,98,0.82);
+      color:#fff;
+      font-family: "Comic Sans MS", "Yu Gothic", system-ui, sans-serif;
+      font-size: clamp(32px, 10vw, 54px);
+      font-weight: 700;
+      line-height: 1;
+      text-shadow:
+        0 1px 0 rgba(255,255,255,0.45),
+        0 0 4px rgba(255,255,255,0.28);
+      -webkit-tap-highlight-color: transparent;
+    }
+    .boardInputBox:active{
+      background: rgba(105,130,115,0.9);
+      box-shadow: 0 0 0 5px rgba(255,255,255,0.18);
+    }
+    .boardInfoBox{
+      pointer-events:none;
+      display:none;
+    }
+    .boardScrewBox{
+      left: 27%;
+      top: 29%;
+      width: 46%;
+      height: 17%;
+    }
+    .boardKanaBox{
+      left: 27%;
+      top: 56%;
+      width: 46%;
+      height: 17%;
+      font-size: clamp(24px, 7.5vw, 40px);
+    }
+    .boardMemoBox{
+      left: 78%;
+      top: 38%;
+      width: 18%;
+      height: 25%;
+      font-size: clamp(28px, 8vw, 44px);
+    }
+    .boardMemoBox span:empty::after{
+      content: "";
+    }
+    .boardRamBox{
+      left: 81%;
+      top: 8%;
+      width: 17%;
+      height: 20%;
+      font-size: clamp(24px, 7vw, 34px);
+      background: rgba(92,110,98,0.68);
+    }
+    .boardAteBox{
+      left: 5%;
+      bottom: 6%;
+      width: 90%;
+      height: 17%;
+      justify-content:flex-start;
+      padding: 0 3%;
+      box-sizing:border-box;
+      border-radius: 10px;
+      background: transparent;
+      color:#fff;
+      font-family: "Comic Sans MS", "Yu Gothic", system-ui, sans-serif;
+      font-size: clamp(24px, 7.8vw, 40px);
+      font-weight: 700;
+      text-align:left;
+      white-space: nowrap;
+    }
+    .boardStage.has-ram .boardRamBox,
+    .boardStage.has-ate .boardAteBox{
+      display:flex;
+    }
+
+    .boardInputMask{
+      display:none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.28);
+      z-index: 9996;
+    }
+    .boardInputPanel{
+      display:none;
+      position: fixed;
+      left: 50%;
+      transform: translateX(-50%);
+      bottom: 10px;
+      width: min(420px, calc(100vw - 24px));
+      max-height: min(76vh, 680px);
+      overflow: auto;
+      border-radius: 16px;
+      border: 1px solid var(--border);
+      background:#fff;
+      padding: 12px;
+      z-index: 9997;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.25);
+    }
+    .boardInputHead{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+      margin-bottom: 10px;
+    }
+    .boardInputTitle{ font-weight: 900; }
+    .boardInputHost > .row{ margin-top: 0; }
+    .boardInputHost #screwArea,
+    .boardInputHost #kanashikiArea{
+      display:block;
+    }
+    .boardMemoEditor{ display:none; margin: 8px 0 12px; }
+    .boardMemoEditor input{
+      width: 100%;
+      box-sizing: border-box;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 14px;
+      font: inherit;
+      font-size: 22px;
+      font-weight: 900;
+      text-align:center;
+    }
+
+    body:not(.board-popup-open) #screwArea,
+    body:not(.board-popup-open) #kanashikiArea{
+      display:none;
+    }
+
+    .calcMask{ display:none; position: fixed; inset: 0; background: rgba(0,0,0,0.25); z-index: 9998; }
+    .calcPanel{
+      display:none;
+      position: fixed;
+      left: 50%;
+      transform: translateX(-50%);
+      bottom: 10px;
+      width: min(420px, calc(100vw - 24px));
+      border-radius: 16px;
+      border: 1px solid var(--border);
+      background: #fff;
+      padding: 12px;
+      z-index: 9999;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.25);
+    }
+    .calcTitle{ font-weight: 900; margin: 0 0 8px 0; }
+    .calcRow{ display:flex; gap:10px; align-items:center; margin-top:10px; }
+    .calcRow input{
+      width: 100%;
+      font: inherit;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 12px;
+      font-weight: 900;
+      font-size: 16px;
+    }
+    .calcOps{ display:flex; gap:10px; margin-top:10px; flex-wrap:wrap; }
+    .calcResult{
+      margin-top:10px;
+      border:1px solid #e6e6e6;
+      background:#fafafa;
+      border-radius: 12px;
+      padding: 10px 12px;
+      font-weight: 900;
+      min-height: 24px;
+    }
+
+    .hide{ display:none !important; }
+
+    /* ===== LEVEL0（授業） ===== */
+    .l0Title{ font-weight: 900; font-size: 16px; margin: 0; }
+    .l0Body{ color: var(--ink); line-height: 1.5; font-size: 14px; }
+    .l0Body div{ margin-top: 6px; }
+    .l0Feedback{
+      border-radius: 12px;
+      border: 1px solid #e6e6e6;
+      background:#fafafa;
+      padding: 10px 12px;
+      font-weight: 900;
+      min-height: 20px;
+    }
+    .l0Feedback.ok{ border-color: rgba(10,122,58,0.35); background: rgba(10,122,58,0.08); color: var(--ok); }
+    .l0Feedback.ng{ border-color: rgba(198,40,40,0.35); background: rgba(198,40,40,0.08); color: var(--ng); }
+    .l0Q{ font-weight: 900; margin-top: 10px; }
+    .l0Choices{ display:flex; gap:10px; margin-top: 10px; flex-wrap:wrap; }
+    .l0Choices button{ flex: 1 1 140px; min-height: 52px; font-weight: 900; }
+    .l0Nav{ display:flex; align-items:center; justify-content:space-between; gap:10px; margin-top: 12px; }
+    .muted{ color: var(--muted); font-size: 12px; }
+
+    /* ===== タイトル：マリオ式UI（大分類） ===== */
+    .groupCard{ border:1px solid var(--border); border-radius:14px; padding:12px; background:#fff; }
+    .groupHead{ display:flex; align-items:center; justify-content:space-between; gap:10px; cursor:pointer; }
+    .groupHead .k{ font-weight:900; }
+    .groupHead .d{ color:var(--muted); font-size:12px; margin-top:6px; line-height:1.4; }
+    .groupToggle{ width:44px; height:44px; }
+    .groupBody{ margin-top:10px; display:none; }
+    .groupBody.on{ display:block; }
+
+    .stageItem{ border:1px solid #e6e6e6; border-radius:14px; padding:10px 12px; background:#fafafa; }
+    .stageTop{ display:flex; align-items:flex-start; justify-content:space-between; gap:10px; }
+    .stageName{ font-weight:900; }
+    .stageMeta{ color:var(--muted); font-size:12px; margin-top:6px; line-height:1.4; }
+
+    /* ===== ガイド（オーバーレイ） ===== */
+    #guideMask{
+      display:none;
+      position:fixed;
+      inset:0;
+      background:rgba(0,0,0,0.60);
+      z-index: 20000;
+    }
+    #guideBox{
+      display:none;
+      position:fixed;
+      border: 3px solid var(--accent);
+      border-radius: 14px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.35);
+      z-index: 20001;
+      pointer-events:none;
+    }
+    #guideText{
+      display:none;
+      position:fixed;
+      z-index: 20002;
+      background:#fff;
+      border: 1px solid #e6e6e6;
+      border-radius: 14px;
+      padding: 10px 12px;
+      font-weight: 900;
+      max-width: min(320px, calc(100vw - 24px));
+      box-shadow: 0 10px 30px rgba(0,0,0,0.25);
+      line-height: 1.4;
+    }
+    #guideHint{
+      display:none;
+      position:fixed;
+      z-index: 20003;
+      color:#fff;
+      font-weight: 900;
+      font-size: 13px;
+      left: 12px;
+      bottom: 12px;
+      opacity: 0.9;
+    }

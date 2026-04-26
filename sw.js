@@ -4,10 +4,12 @@
 // - 反映されない時は CACHE_NAME を +1
 // ============================================
 
-const CACHE_NAME = "araji-v8"; // ←更新したらここを増やす
+const CACHE_NAME = "araji-v12"; // ←更新したらここを増やす
 const CORE_ASSETS = [
   "./",
   "./index.html",
+  "./styles.css",
+  "./main.js",
   "./engine.js",
   "./machine_config.js",
   "./manifest.json"
